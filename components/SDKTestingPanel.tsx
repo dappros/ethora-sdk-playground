@@ -1,9 +1,19 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
+import type { SDKMethodName } from '@/lib/sdk-types';
+import { formatJSON, validateJSON, safeFormatJSON } from '@/lib/json-formatter';
 
 interface SDKTestingPanelProps {
   onExecute: (method: string, params: any, files?: File[]) => Promise<any>;
+}
+
+interface APIError {
+  error: string;
+  suggestions?: string[];
+  code?: string;
+  field?: string;
+  details?: string;
 }
 
 interface MethodForm {
@@ -108,22 +118,44 @@ const SDK_METHODS = [
 ];
 
 export default function SDKTestingPanel({ onExecute }: SDKTestingPanelProps) {
-  const [selectedMethod, setSelectedMethod] = useState<string>(SDK_METHODS[0].id);
+  const [selectedMethod, setSelectedMethod] = useState<SDKMethodName>(SDK_METHODS[0].id as SDKMethodName);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [files, setFiles] = useState<File[]>([]);
   const [result, setResult] = useState<any>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<APIError | null>(null);
   const [loading, setLoading] = useState(false);
 
   const currentMethod = SDK_METHODS.find((m) => m.id === selectedMethod);
 
   const handleMethodChange = (methodId: string) => {
-    setSelectedMethod(methodId);
+    setSelectedMethod(methodId as SDKMethodName);
     setFormData({});
     setFiles([]);
     setResult(null);
     setError(null);
   };
+
+  // Handle JSON formatting for textarea inputs
+  const handleTextareaChange = useCallback((key: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [key]: value }));
+  }, []);
+
+  // Format JSON on blur for textareas
+  const handleTextareaBlur = useCallback((key: string, value: string) => {
+    if (!value || !value.trim()) return;
+
+    // Check if it looks like JSON
+    const trimmed = value.trim();
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      const formatted = safeFormatJSON(trimmed);
+      if (formatted.success && formatted.formatted) {
+        setFormData((prev) => ({ ...prev, [key]: formatted.formatted }));
+      } else if (formatted.error) {
+        // Show validation error but don't block input
+        console.warn(`JSON formatting warning for ${key}:`, formatted.error);
+      }
+    }
+  }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -203,8 +235,13 @@ export default function SDKTestingPanel({ onExecute }: SDKTestingPanelProps) {
           ? formData.userIds.split(',').map((id: string) => id.trim())
           : [];
       } else if (selectedMethod === 'updateUsers') {
+        const usersJson = formData.users || '[]';
+        const validation = validateJSON(usersJson);
+        if (!validation.valid) {
+          throw new Error(`Invalid JSON format for users array: ${validation.error}`);
+        }
         try {
-          params.users = JSON.parse(formData.users || '[]');
+          params.users = JSON.parse(usersJson);
         } catch (e) {
           throw new Error('Invalid JSON format for users array');
         }
@@ -258,8 +295,38 @@ export default function SDKTestingPanel({ onExecute }: SDKTestingPanelProps) {
       // Send request with files if present
       const response = await onExecute(selectedMethod, params, files.length > 0 ? files : undefined);
       setResult(response);
+      setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      // Parse structured error response
+      if (err instanceof Error) {
+        const errorWithExtras = err as Error & {
+          suggestions?: string[];
+          code?: string;
+          field?: string;
+          details?: string;
+        };
+        
+        setError({
+          error: errorWithExtras.message,
+          suggestions: errorWithExtras.suggestions || [
+            'Check that all required fields are filled',
+            'Verify the data format is correct',
+            'Review the error message for specific issues',
+          ],
+          code: errorWithExtras.code,
+          field: errorWithExtras.field,
+          details: errorWithExtras.details,
+        });
+      } else {
+        setError({
+          error: 'An unexpected error occurred',
+          suggestions: [
+            'Try again in a moment',
+            'Check your network connection',
+            'Verify the SDK is properly configured',
+          ],
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -327,14 +394,37 @@ export default function SDKTestingPanel({ onExecute }: SDKTestingPanelProps) {
                   )}
                 </div>
               ) : param.type === 'textarea' ? (
-                <textarea
-                  value={formData[param.key] || ''}
-                  onChange={(e) => handleInputChange(param.key, e.target.value)}
-                  placeholder={typeof param.defaultValue === 'string' ? param.defaultValue : `Enter ${param.label.toLowerCase()}`}
-                  required={!!param.required}
-                  rows={6}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white text-sm font-mono"
-                />
+                <div>
+                  <textarea
+                    value={formData[param.key] || ''}
+                    onChange={(e) => handleTextareaChange(param.key, e.target.value)}
+                    onBlur={(e) => handleTextareaBlur(param.key, e.target.value)}
+                    placeholder={typeof param.defaultValue === 'string' ? param.defaultValue : `Enter ${param.label.toLowerCase()}`}
+                    required={!!param.required}
+                    rows={8}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white text-sm font-mono"
+                  />
+                  {formData[param.key] && (() => {
+                    const value = formData[param.key];
+                    const trimmed = typeof value === 'string' ? value.trim() : '';
+                    if (trimmed && (trimmed.startsWith('{') || trimmed.startsWith('['))) {
+                      const validation = validateJSON(trimmed);
+                      if (!validation.valid) {
+                        return (
+                          <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                            ⚠️ Invalid JSON: {validation.error}
+                          </p>
+                        );
+                      }
+                      return (
+                        <p className="mt-1 text-xs text-green-600 dark:text-green-400">
+                          ✓ Valid JSON (will auto-format on blur)
+                        </p>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
               ) : param.type === 'checkbox' ? (
                 <div className="flex items-center">
                   <input
@@ -420,8 +510,44 @@ export default function SDKTestingPanel({ onExecute }: SDKTestingPanelProps) {
 
       {error && (
         <div className="mt-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-          <h3 className="text-red-800 dark:text-red-200 font-semibold mb-2">Error</h3>
-          <p className="text-red-600 dark:text-red-300 text-sm">{error}</p>
+          <div className="flex items-start justify-between mb-2">
+            <h3 className="text-red-800 dark:text-red-200 font-semibold">Error</h3>
+            <button
+              onClick={() => setError(null)}
+              className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200 text-lg leading-none"
+              aria-label="Close error"
+            >
+              ×
+            </button>
+          </div>
+          <p className="text-red-600 dark:text-red-300 text-sm mb-3">{error.error}</p>
+          {error.code && (
+            <p className="text-xs text-red-500 dark:text-red-400 mb-3">
+              Error Code: <code className="bg-red-100 dark:bg-red-900/30 px-1 rounded">{error.code}</code>
+            </p>
+          )}
+          {error.suggestions && error.suggestions.length > 0 && (
+            <div className="mt-3">
+              <p className="text-xs font-semibold text-red-700 dark:text-red-300 mb-2">Suggestions:</p>
+              <ul className="list-disc list-inside space-y-1">
+                {error.suggestions.map((suggestion, index) => (
+                  <li key={index} className="text-xs text-red-600 dark:text-red-400">
+                    {suggestion}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {error.details && (
+            <details className="mt-3">
+              <summary className="text-xs text-red-600 dark:text-red-400 cursor-pointer hover:text-red-800 dark:hover:text-red-200">
+                Show technical details
+              </summary>
+              <pre className="mt-2 p-2 bg-red-100 dark:bg-red-900/30 rounded text-xs font-mono text-red-800 dark:text-red-200 overflow-x-auto">
+                {error.details}
+              </pre>
+            </details>
+          )}
         </div>
       )}
 

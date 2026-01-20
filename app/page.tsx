@@ -108,8 +108,32 @@ export default function Home() {
     }
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to execute SDK method');
+      const errorData = await response.json().catch(() => ({
+        error: 'Failed to parse error response',
+      }));
+      
+      // Create a custom error with structured data
+      const error = new Error(errorData.error || 'Failed to execute SDK method') as Error & {
+        suggestions?: string[];
+        code?: string;
+        field?: string;
+        details?: string;
+      };
+      
+      if (errorData.suggestions) {
+        error.suggestions = errorData.suggestions;
+      }
+      if (errorData.code) {
+        error.code = errorData.code;
+      }
+      if (errorData.field) {
+        error.field = errorData.field;
+      }
+      if (errorData.details) {
+        error.details = errorData.details;
+      }
+      
+      throw error;
     }
 
     const data = await response.json();
