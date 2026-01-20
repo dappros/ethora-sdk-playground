@@ -170,7 +170,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error:
-            "SDK not configured. Please check your .env.local file with ETHORA_CHAT_API_URL, ETHORA_CHAT_APP_ID, and ETHORA_CHAT_APP_SECRET",
+            "SDK not configured. Please check your .env.local file with ETHORA_CHAT_APP_ID and ETHORA_CHAT_APP_SECRET",
         },
         { status: 500 }
       );

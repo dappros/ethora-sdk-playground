@@ -40,7 +40,8 @@ export default function Home() {
           userData: {
             firstName: 'Playground',
             lastName: 'User',
-            email: `${settings.userId}@example.com`,
+            email: 'yukiraze9@gmail.com',
+            password: 'Qwerty123',
           },
         }),
       });
@@ -105,7 +106,7 @@ export default function Home() {
   }, [setupError]);
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
+    <div className="h-screen flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-950">
       {/* Header */}
       <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-4 lg:px-6 py-3 lg:py-4 shadow-sm">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">

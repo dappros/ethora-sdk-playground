@@ -442,3 +442,60 @@ export function settingsToChatConfig(
 
   return config;
 }
+
+/**
+ * Settings that require component remount (structural changes)
+ * These settings affect initialization, connection, or core architecture.
+ * 
+ * When a setting in this list changes, the chat component will be completely
+ * unmounted and remounted with the new configuration.
+ * 
+ * To add new remount-required settings:
+ * 1. Add the setting key to this array
+ * 2. The remount will happen automatically when that setting changes
+ * 
+ * Examples of remount-required settings:
+ * - Architecture changes (newArch)
+ * - Connection settings (xmppDevServer, xmppHost, baseUrl)
+ * - Initialization flags (clearStoreBeforeInit, initBeforeLoad)
+ * - Core feature toggles that affect component structure (disableRooms, defaultLogin)
+ */
+export const REMOUNT_REQUIRED_SETTINGS: (keyof PlaygroundSettings)[] = [
+  'newArch',
+  'clearStoreBeforeInit',
+  'initBeforeLoad',
+  'baseUrl',
+  'customAppToken',
+  'xmppDevServer',
+  'xmppHost',
+  'xmppConference',
+  'disableRooms',
+  'defaultLogin',
+  'forceSetRoom',
+  'setRoomJidInPath',
+  'refreshTokensEnabled',
+  'enableRoomsRetry',
+  // Add 'useStoreConsoleEnabled' here if you add it to PlaygroundSettings
+];
+
+/**
+ * Check if settings changes require component remount
+ */
+export function requiresRemount(
+  prevSettings: PlaygroundSettings,
+  newSettings: PlaygroundSettings
+): boolean {
+  return REMOUNT_REQUIRED_SETTINGS.some(
+    (key) => prevSettings[key] !== newSettings[key]
+  );
+}
+
+/**
+ * Generate a stable key for remount detection
+ */
+export function getRemountKey(settings: PlaygroundSettings): string {
+  const remountValues = REMOUNT_REQUIRED_SETTINGS.map((key) => ({
+    [key]: settings[key],
+  }));
+  return JSON.stringify(remountValues);
+}

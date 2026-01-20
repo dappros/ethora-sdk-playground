@@ -21,7 +21,8 @@ export function generateCodeSnippet(options: CodeSnippetOptions): string {
     ? `// Backend setup (Node.js/Express example)
 import { getEthoraSDKService } from '@ethora/sdk-backend';
 
-// Initialize SDK (requires env vars: ETHORA_CHAT_API_URL, ETHORA_CHAT_APP_ID, ETHORA_CHAT_APP_SECRET)
+// Initialize SDK (requires env vars: ETHORA_CHAT_APP_ID, ETHORA_CHAT_APP_SECRET)
+// ETHORA_CHAT_API_URL is optional (defaults to https://api.ethoradev.com)
 const chatRepo = getEthoraSDKService();
 
 // Create chat room

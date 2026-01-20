@@ -13,9 +13,15 @@ let sdkInstance: ChatRepository | null = null;
  */
 export function getSDKInstance(): ChatRepository {
   if (!sdkInstance) {
-    // Verify environment variables are set
+    // Only set default for API URL, not for APP_ID and APP_SECRET
+    // These should be provided by user in .env.local
+    if (!process.env.ETHORA_CHAT_API_URL) {
+      process.env.ETHORA_CHAT_API_URL = 'https://api.ethoradev.com';
+    }
+
+    // Verify that APP_ID and APP_SECRET are set if SDK requires them
+    // Don't set defaults - let SDK throw error if they're missing
     const requiredEnvVars = [
-      'ETHORA_CHAT_API_URL',
       'ETHORA_CHAT_APP_ID',
       'ETHORA_CHAT_APP_SECRET',
     ];

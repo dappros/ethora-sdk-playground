@@ -116,8 +116,8 @@ export default function SettingsPanel({
   );
 
   return (
-    <div className="h-full overflow-y-auto p-4 lg:p-6 bg-white dark:bg-gray-900">
-      <div className="mb-6 sticky top-0 bg-white dark:bg-gray-900 pb-4 border-b border-gray-200 dark:border-gray-800 z-10">
+    <div className="h-full overflow-y-auto bg-white dark:bg-gray-900">
+      <div className="sticky top-0 bg-white dark:bg-gray-900 z-10 border-b border-gray-200 dark:border-gray-800 px-4 lg:px-6 pt-4 lg:pt-6 pb-4">
         <h2 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white mb-2">
           Settings
         </h2>
@@ -126,39 +126,40 @@ export default function SettingsPanel({
         </p>
       </div>
 
-      <button
-        onClick={onSetup}
-        disabled={isSettingUp}
-        className="w-full mb-6 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium rounded-md transition-colors shadow-sm hover:shadow"
-      >
-        {isSettingUp ? (
-          <span className="flex items-center justify-center">
-            <svg
-              className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              ></circle>
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              ></path>
-            </svg>
-            Setting up...
-          </span>
-        ) : (
-          'Setup Chat Room & User'
-        )}
-      </button>
+      <div className="px-4 lg:px-6 pt-4 pb-6">
+        <button
+          onClick={onSetup}
+          disabled={isSettingUp}
+          className="w-full mb-6 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium rounded-md transition-colors shadow-sm hover:shadow"
+        >
+          {isSettingUp ? (
+            <span className="flex items-center justify-center">
+              <svg
+                className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                ></circle>
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
+              </svg>
+              Setting up...
+            </span>
+          ) : (
+            'Setup Chat Room & User'
+          )}
+        </button>
 
       <CollapsibleSection title="Authentication" defaultOpen={true}>
         <div>
@@ -642,6 +643,7 @@ export default function SettingsPanel({
           />
         </div>
       </CollapsibleSection>
+      </div>
     </div>
   );
 }

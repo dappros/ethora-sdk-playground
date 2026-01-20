@@ -29,9 +29,10 @@ export async function POST(request: NextRequest) {
     // Create user (idempotent - safe to call multiple times)
     try {
       await sdk.createUser(userId, {
-        firstName: userData?.firstName || 'User',
-        lastName: userData?.lastName || 'Name',
-        email: userData?.email || `${userId}@example.com`,
+        firstName: userData?.firstName || 'Playground',
+        lastName: userData?.lastName || 'User',
+        email: userData?.email || 'yukiraze9@gmail.com',
+        password: userData?.password || 'Qwerty123',
         ...userData,
       });
     } catch (userError) {
@@ -77,7 +78,7 @@ export async function POST(request: NextRequest) {
     if (error instanceof Error && error.message.includes('Missing required')) {
       return NextResponse.json(
         {
-          error: 'SDK not configured. Please check your .env.local file with ETHORA_CHAT_API_URL, ETHORA_CHAT_APP_ID, and ETHORA_CHAT_APP_SECRET',
+          error: 'SDK not configured. Please check your .env.local file with ETHORA_CHAT_APP_ID and ETHORA_CHAT_APP_SECRET',
         },
         { status: 500 }
       );
