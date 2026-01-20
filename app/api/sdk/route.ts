@@ -36,6 +36,7 @@ import {
   createSDKError,
   ERROR_SUGGESTIONS,
 } from "@/lib/sdk-types";
+import { SDKErrorCode, createErrorResponse } from "@/lib/error-codes";
 
 export async function POST(request: NextRequest) {
   try {
@@ -67,14 +68,10 @@ export async function POST(request: NextRequest) {
     const { method, params } = body;
 
     if (!method || typeof method !== "string") {
-      const error = createSDKError(
-        "method is required and must be a string",
-        "MISSING_METHOD",
-        ["Ensure the method parameter is provided", "Check that method is a valid SDK method name"]
-      );
+      const error = createErrorResponse(SDKErrorCode.MISSING_METHOD);
       return NextResponse.json(
         { error: error.message, suggestions: error.suggestions, code: error.code },
-        { status: 400 }
+        { status: error.httpStatus || 400 }
       );
     }
 
@@ -156,6 +153,10 @@ export async function POST(request: NextRequest) {
         const userData = params.userData || {};
 
         // Convert files to buffers for SDK if files are provided
+        // NOTE: The @ethora/sdk-backend createUser method signature is:
+        // createUser(userId: string, userData: Record<string, unknown>, files?: Buffer[]): Promise<any>
+        // Files are passed as the third parameter (optional array of Buffers)
+        // The userData should contain profileImageFileIndex to reference files by index
         let createUserFileBuffers: Buffer[] = [];
         if (files.length > 0) {
           createUserFileBuffers = await Promise.all(
@@ -166,23 +167,12 @@ export async function POST(request: NextRequest) {
           );
         }
 
-        // Call SDK - try with files parameter first, fall back if not supported
-        // The SDK backend should handle files via profileImageFileIndex in userData
-        try {
-          if (createUserFileBuffers.length > 0) {
-            // Try calling with files parameter (if SDK supports it)
-            try {
-              result = await (sdk.createUser as any)(params.userId, userData, createUserFileBuffers);
-            } catch (fileError: any) {
-              // If files parameter not supported, call without it
-              // SDK backend will use profileImageFileIndex from userData
-              result = await sdk.createUser(params.userId, userData as Record<string, unknown>);
-            }
-          } else {
-            result = await sdk.createUser(params.userId, userData as Record<string, unknown>);
-          }
-        } catch (sdkError) {
-          throw sdkError;
+        // Call SDK with files parameter if files are provided
+        // The SDK backend expects files as Buffer[] in the third parameter
+        if (createUserFileBuffers.length > 0) {
+          result = await (sdk.createUser as any)(params.userId, userData, createUserFileBuffers);
+        } else {
+          result = await sdk.createUser(params.userId, userData as Record<string, unknown>);
         }
         break;
       }
@@ -368,6 +358,10 @@ export async function POST(request: NextRequest) {
         const users = validation.value || params.users;
 
         // Convert files to buffers for SDK if files are provided
+        // NOTE: The @ethora/sdk-backend updateUsers method signature is:
+        // updateUsers(users: UpdateUserData[], files?: Buffer[]): Promise<any>
+        // Files are passed as the second parameter (optional array of Buffers)
+        // The userData should contain profileImageFileIndex to reference files by index
         let updateUsersFileBuffers: Buffer[] = [];
         if (files.length > 0) {
           updateUsersFileBuffers = await Promise.all(
@@ -378,36 +372,24 @@ export async function POST(request: NextRequest) {
           );
         }
 
-        // Call SDK - try with files parameter first, fall back if not supported
-        // The SDK backend should handle files via profileImageFileIndex in userData
-        try {
-          if (updateUsersFileBuffers.length > 0) {
-            // Try calling with files parameter (if SDK supports it)
-            try {
-              result = await (sdk.updateUsers as any)(users, updateUsersFileBuffers);
-            } catch (fileError: any) {
-              // If files parameter not supported, call without it
-              // SDK backend will use profileImageFileIndex from userData
-              result = await sdk.updateUsers(users);
-            }
-          } else {
-            result = await sdk.updateUsers(users);
-          }
-        } catch (sdkError) {
-          throw sdkError;
+        // Call SDK with files parameter if files are provided
+        // The SDK backend expects files as Buffer[] in the second parameter
+        if (updateUsersFileBuffers.length > 0) {
+          result = await (sdk.updateUsers as any)(users, updateUsersFileBuffers);
+        } else {
+          result = await sdk.updateUsers(users);
         }
         break;
       }
 
       default: {
-        const error = createSDKError(
-          `Unknown method: ${method}`,
-          "UNKNOWN_METHOD",
-          ["Check the method name spelling", "Verify the method is supported by the SDK", "Review available SDK methods"]
+        const error = createErrorResponse(
+          SDKErrorCode.UNKNOWN_METHOD,
+          `Unknown method: ${method}`
         );
         return NextResponse.json(
           { error: error.message, suggestions: error.suggestions, code: error.code },
-          { status: 400 }
+          { status: error.httpStatus || 400 }
         );
       }
     }
@@ -422,18 +404,14 @@ export async function POST(request: NextRequest) {
 
     // Check if it's a configuration error
     if (error instanceof Error && error.message.includes("Missing required")) {
-      const sdkError = createSDKError(
-        "SDK not configured. Please check your .env.local file with ETHORA_CHAT_APP_ID and ETHORA_CHAT_APP_SECRET",
-        "SDK_NOT_CONFIGURED",
-        ERROR_SUGGESTIONS.SDK_NOT_CONFIGURED
-      );
+      const sdkError = createErrorResponse(SDKErrorCode.SDK_NOT_CONFIGURED);
       return NextResponse.json(
         {
           error: sdkError.message,
           suggestions: sdkError.suggestions,
           code: sdkError.code,
         },
-        { status: 500 }
+        { status: sdkError.httpStatus || 500 }
       );
     }
 
@@ -444,10 +422,9 @@ export async function POST(request: NextRequest) {
       error.message.includes("ECONNREFUSED") ||
       error.message.includes("ETIMEDOUT")
     )) {
-      const sdkError = createSDKError(
-        error.message,
-        "NETWORK_ERROR",
-        ERROR_SUGGESTIONS.NETWORK_ERROR
+      const sdkError = createErrorResponse(
+        SDKErrorCode.NETWORK_ERROR,
+        error.message
       );
       return NextResponse.json(
         {
@@ -455,16 +432,29 @@ export async function POST(request: NextRequest) {
           suggestions: sdkError.suggestions,
           code: sdkError.code,
         },
-        { status: 500 }
+        { status: sdkError.httpStatus || 500 }
       );
     }
 
-    const sdkError = createSDKError(
-      error instanceof Error
-        ? error.message
-        : "Failed to execute SDK method",
-      "SDK_EXECUTION_ERROR",
-      ["Check the SDK method parameters", "Verify the SDK is properly configured", "Review the error details for more information"]
+    // Check for timeout errors
+    if (error instanceof Error && error.message.includes("timeout")) {
+      const sdkError = createErrorResponse(
+        SDKErrorCode.TIMEOUT_ERROR,
+        error.message
+      );
+      return NextResponse.json(
+        {
+          error: sdkError.message,
+          suggestions: sdkError.suggestions,
+          code: sdkError.code,
+        },
+        { status: sdkError.httpStatus || 504 }
+      );
+    }
+
+    const sdkError = createErrorResponse(
+      SDKErrorCode.SDK_EXECUTION_ERROR,
+      error instanceof Error ? error.message : "Failed to execute SDK method"
     );
 
     return NextResponse.json(
@@ -474,7 +464,7 @@ export async function POST(request: NextRequest) {
         code: sdkError.code,
         details: error instanceof Error ? error.stack : undefined,
       },
-      { status: 500 }
+      { status: sdkError.httpStatus || 500 }
     );
   }
 }

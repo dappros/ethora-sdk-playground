@@ -3,6 +3,11 @@
 import React, { useState, useCallback } from 'react';
 import type { SDKMethodName } from '@/lib/sdk-types';
 import { formatJSON, validateJSON, safeFormatJSON } from '@/lib/json-formatter';
+import { saveRequestToHistory, type RequestHistoryItem } from '@/lib/request-history';
+import { exportRequest, type ExportFormat } from '@/lib/code-export';
+import { validateUserData } from '@/lib/user-validation';
+import RequestHistory from './RequestHistory';
+import ResponseLogger, { type LogEntry } from './ResponseLogger';
 
 interface SDKTestingPanelProps {
   onExecute: (method: string, params: any, files?: File[]) => Promise<any>;
@@ -124,6 +129,12 @@ export default function SDKTestingPanel({ onExecute }: SDKTestingPanelProps) {
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<APIError | null>(null);
   const [loading, setLoading] = useState(false);
+  const [responseTime, setResponseTime] = useState<number | null>(null);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [showHistory, setShowHistory] = useState(false);
+  const [showCodeExport, setShowCodeExport] = useState(false);
+  const [exportFormat, setExportFormat] = useState<ExportFormat>('fetch');
 
   const currentMethod = SDK_METHODS.find((m) => m.id === selectedMethod);
 
@@ -218,6 +229,79 @@ export default function SDKTestingPanel({ onExecute }: SDKTestingPanelProps) {
 
   const handleInputChange = (key: string, value: any) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
+    // Clear field error when user starts typing
+    if (fieldErrors[key]) {
+      setFieldErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors[key];
+        return newErrors;
+      });
+    }
+    // Real-time validation for specific fields
+    validateField(key, value);
+  };
+
+  const validateField = (key: string, value: any) => {
+    const errors: Record<string, string> = {};
+    
+    if (key === 'email' && value) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(value)) {
+        errors[key] = 'Invalid email format';
+      }
+    }
+    
+    if (key === 'firstName' && value) {
+      if (value.length < 3) {
+        errors[key] = 'First name must be at least 3 characters';
+      }
+    }
+    
+    if (key === 'lastName' && value) {
+      if (value.length < 2) {
+        errors[key] = 'Last name must be at least 2 characters';
+      }
+    }
+    
+    if (key === 'workspaceId' && value) {
+      if (value.trim().length === 0) {
+        errors[key] = 'Workspace ID is required';
+      }
+    }
+    
+    if (key === 'userId' && value) {
+      if (value.trim().length === 0) {
+        errors[key] = 'User ID is required';
+      }
+    }
+
+    if (key === 'users' && value) {
+      const validation = validateJSON(value);
+      if (!validation.valid) {
+        errors[key] = `Invalid JSON: ${validation.error}`;
+      } else {
+        try {
+          const users = JSON.parse(value);
+          if (!Array.isArray(users)) {
+            errors[key] = 'Users must be an array';
+          } else if (users.length === 0) {
+            errors[key] = 'Users array cannot be empty';
+          } else {
+            // Validate each user
+            users.forEach((user: any, index: number) => {
+              const userValidation = validateUserData(user);
+              if (!userValidation.valid) {
+                errors[key] = `User ${index + 1}: ${userValidation.error}`;
+              }
+            });
+          }
+        } catch (e) {
+          // Already handled by validateJSON
+        }
+      }
+    }
+
+    setFieldErrors((prev) => ({ ...prev, ...errors }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -225,6 +309,11 @@ export default function SDKTestingPanel({ onExecute }: SDKTestingPanelProps) {
     setLoading(true);
     setError(null);
     setResult(null);
+    setResponseTime(null);
+    setFieldErrors({});
+
+    const startTime = Date.now();
+    let requestLog: LogEntry | null = null;
 
     try {
       // Prepare params based on method
@@ -292,11 +381,60 @@ export default function SDKTestingPanel({ onExecute }: SDKTestingPanelProps) {
         params = { workspaceId: formData.workspaceId };
       }
 
+      // Log request
+      requestLog = {
+        id: `req-${Date.now()}`,
+        timestamp: Date.now(),
+        type: 'request',
+        method: selectedMethod,
+        data: { method: selectedMethod, params, filesCount: files.length },
+      };
+      setLogs((prev) => [requestLog!, ...prev.slice(0, 49)]); // Keep last 50 logs
+
       // Send request with files if present
       const response = await onExecute(selectedMethod, params, files.length > 0 ? files : undefined);
+      
+      const endTime = Date.now();
+      const elapsed = endTime - startTime;
+      setResponseTime(elapsed);
+      
       setResult(response);
       setError(null);
+
+      // Log response
+      const responseLog: LogEntry = {
+        id: `res-${Date.now()}`,
+        timestamp: Date.now(),
+        type: 'response',
+        method: selectedMethod,
+        data: response,
+        responseTime: elapsed,
+      };
+      setLogs((prev) => [responseLog, ...prev.slice(0, 49)]);
+
+      // Save to history
+      saveRequestToHistory({
+        method: selectedMethod,
+        params,
+        result: response,
+        success: true,
+        responseTime: elapsed,
+      });
     } catch (err) {
+      const endTime = Date.now();
+      const elapsed = endTime - startTime;
+      setResponseTime(elapsed);
+
+      // Log error
+      const errorLog: LogEntry = {
+        id: `err-${Date.now()}`,
+        timestamp: Date.now(),
+        type: 'error',
+        method: selectedMethod,
+        data: err instanceof Error ? { message: err.message, stack: err.stack } : err,
+        responseTime: elapsed,
+      };
+      setLogs((prev) => [errorLog, ...prev.slice(0, 49)]);
       // Parse structured error response
       if (err instanceof Error) {
         const errorWithExtras = err as Error & {
@@ -317,6 +455,74 @@ export default function SDKTestingPanel({ onExecute }: SDKTestingPanelProps) {
           field: errorWithExtras.field,
           details: errorWithExtras.details,
         });
+
+        // Save failed request to history - reconstruct params from formData
+        let errorParams: any = {};
+        try {
+          if (selectedMethod === 'deleteUsers') {
+            errorParams.userIds = formData.userIds
+              ? formData.userIds.split(',').map((id: string) => id.trim())
+              : [];
+          } else if (selectedMethod === 'updateUsers') {
+            const usersJson = formData.users || '[]';
+            errorParams.users = JSON.parse(usersJson);
+          } else if (selectedMethod === 'getUsers') {
+            errorParams = {};
+            if (formData.chatName) errorParams.chatName = formData.chatName;
+            if (formData.xmppUsername) errorParams.xmppUsername = formData.xmppUsername;
+          } else if (selectedMethod === 'createChatName') {
+            errorParams = {
+              workspaceId: formData.workspaceId,
+              full: formData.full !== undefined ? formData.full : true,
+            };
+          } else if (selectedMethod === 'createChatUserJwtToken') {
+            errorParams = { userId: formData.userId };
+          } else if (selectedMethod === 'grantChatbotAccessToChatRoom') {
+            errorParams = { workspaceId: formData.workspaceId };
+          } else if (selectedMethod === 'grantUserAccessToChatRoom') {
+            errorParams = {
+              workspaceId: formData.workspaceId,
+              userId: formData.userId,
+            };
+          } else if (selectedMethod === 'createUser') {
+            errorParams = {
+              userId: formData.userId,
+              userData: {
+                email: formData.email,
+                firstName: formData.firstName,
+                lastName: formData.lastName,
+                ...(formData.password && { password: formData.password }),
+                ...(formData.uuid && { uuid: formData.uuid }),
+                ...(formData.profileImage && { profileImage: formData.profileImage }),
+                ...(formData.profileImageFileIndex !== undefined && {
+                  profileImageFileIndex: Number(formData.profileImageFileIndex),
+                }),
+                ...(formData.displayName && { displayName: formData.displayName }),
+              },
+            };
+          } else if (selectedMethod === 'createChatRoom') {
+            errorParams = {
+              workspaceId: formData.workspaceId,
+              roomData: {
+                ...(formData.title && { title: formData.title }),
+                uuid: formData.workspaceId,
+                type: formData.type || 'group',
+              },
+            };
+          } else if (selectedMethod === 'deleteChatRoom') {
+            errorParams = { workspaceId: formData.workspaceId };
+          }
+        } catch {
+          // If reconstruction fails, use empty object
+        }
+        
+        saveRequestToHistory({
+          method: selectedMethod,
+          params: errorParams,
+          error: errorWithExtras,
+          success: false,
+          responseTime: elapsed,
+        });
       } else {
         setError({
           error: 'An unexpected error occurred',
@@ -332,16 +538,130 @@ export default function SDKTestingPanel({ onExecute }: SDKTestingPanelProps) {
     }
   };
 
+  const handleReplay = (item: RequestHistoryItem) => {
+    setSelectedMethod(item.method as SDKMethodName);
+    // Try to populate form data from history
+    if (item.params) {
+      if (item.method === 'updateUsers' && item.params.users) {
+        setFormData({ users: JSON.stringify(item.params.users, null, 2) });
+      } else if (item.method === 'deleteUsers' && item.params.userIds) {
+        setFormData({ userIds: item.params.userIds.join(',') });
+      } else {
+        setFormData(item.params);
+      }
+    }
+    setShowHistory(false);
+    // Scroll to form
+    setTimeout(() => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, 100);
+  };
+
+  const handleExportCode = () => {
+    let params: any = {};
+    // Reconstruct params similar to handleSubmit
+    if (selectedMethod === 'deleteUsers') {
+      params.userIds = formData.userIds
+        ? formData.userIds.split(',').map((id: string) => id.trim())
+        : [];
+    } else if (selectedMethod === 'updateUsers') {
+      try {
+        params.users = JSON.parse(formData.users || '[]');
+      } catch {
+        params.users = [];
+      }
+    } else {
+      params = formData;
+    }
+
+    const code = exportRequest(
+      {
+        method: selectedMethod,
+        params,
+        files: files.length > 0 ? files : undefined,
+      },
+      exportFormat
+    );
+
+    // Copy to clipboard
+    navigator.clipboard.writeText(code);
+    alert('Code copied to clipboard!');
+  };
+
   return (
     <div className="h-full overflow-y-auto px-4 lg:px-6 pb-4 lg:pb-6 bg-white dark:bg-gray-900">
       <div className="mb-6 sticky top-0 bg-white dark:bg-gray-900 pt-4 lg:pt-6 pb-4 border-b border-gray-200 dark:border-gray-800 z-10">
-        <h2 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white mb-2">
-          SDK Testing
-        </h2>
-        <p className="text-xs lg:text-sm text-gray-600 dark:text-gray-400">
-          Test all SDK methods interactively
-        </p>
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <h2 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white mb-2">
+              SDK Testing
+            </h2>
+            <p className="text-xs lg:text-sm text-gray-600 dark:text-gray-400">
+              Test all SDK methods interactively
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowHistory(!showHistory)}
+              className="px-3 py-1.5 text-xs bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md transition-colors"
+            >
+              {showHistory ? 'Hide' : 'Show'} History
+            </button>
+            <button
+              onClick={() => setShowCodeExport(!showCodeExport)}
+              className="px-3 py-1.5 text-xs bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md transition-colors"
+            >
+              Export Code
+            </button>
+          </div>
+        </div>
+        {responseTime !== null && (
+          <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+            Response time: <span className="font-mono">{responseTime}ms</span>
+          </div>
+        )}
       </div>
+
+      {/* Code Export Panel */}
+      {showCodeExport && (
+        <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Export Code</h3>
+            <button
+              onClick={() => setShowCodeExport(false)}
+              className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            >
+              ×
+            </button>
+          </div>
+          <div className="flex gap-2 mb-3">
+            <select
+              value={exportFormat}
+              onChange={(e) => setExportFormat(e.target.value as ExportFormat)}
+              className="px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300"
+            >
+              <option value="fetch">Fetch</option>
+              <option value="axios">Axios</option>
+              <option value="curl">cURL</option>
+              <option value="sdk">SDK Direct</option>
+              <option value="complete">Complete Example</option>
+            </select>
+            <button
+              onClick={handleExportCode}
+              className="px-4 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
+            >
+              Copy Code
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Request History Panel */}
+      {showHistory && (
+        <div className="mb-6">
+          <RequestHistory onReplay={handleReplay} />
+        </div>
+      )}
 
       <div className="mb-6">
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -438,19 +758,31 @@ export default function SDKTestingPanel({ onExecute }: SDKTestingPanelProps) {
                   </span>
                 </div>
               ) : (
-                <input
-                  type={param.type}
-                  value={formData[param.key] || ''}
-                  onChange={(e) =>
-                    handleInputChange(
-                      param.key,
-                      param.type === 'number' ? Number(e.target.value) : e.target.value
-                    )
-                  }
-                  placeholder={typeof param.defaultValue === 'string' ? param.defaultValue : `Enter ${param.label.toLowerCase()}`}
-                  required={!!param.required}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white text-sm"
-                />
+                <div>
+                  <input
+                    type={param.type}
+                    value={formData[param.key] || ''}
+                    onChange={(e) =>
+                      handleInputChange(
+                        param.key,
+                        param.type === 'number' ? Number(e.target.value) : e.target.value
+                      )
+                    }
+                    onBlur={(e) => validateField(param.key, e.target.value)}
+                    placeholder={typeof param.defaultValue === 'string' ? param.defaultValue : `Enter ${param.label.toLowerCase()}`}
+                    required={!!param.required}
+                    className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white text-sm ${
+                      fieldErrors[param.key]
+                        ? 'border-red-300 dark:border-red-700'
+                        : 'border-gray-300 dark:border-gray-600'
+                    }`}
+                  />
+                  {fieldErrors[param.key] && (
+                    <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                      {fieldErrors[param.key]}
+                    </p>
+                  )}
+                </div>
               )}
             </div>
           ))}
@@ -567,6 +899,16 @@ export default function SDKTestingPanel({ onExecute }: SDKTestingPanelProps) {
           <pre className="p-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-x-auto text-xs font-mono">
             {JSON.stringify(result, null, 2)}
           </pre>
+        </div>
+      )}
+
+      {/* Response Logger */}
+      {logs.length > 0 && (
+        <div className="mt-6">
+          <ResponseLogger
+            logs={logs}
+            onClear={() => setLogs([])}
+          />
         </div>
       )}
     </div>

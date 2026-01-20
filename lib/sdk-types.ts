@@ -118,7 +118,15 @@ export type SDKMethodParams =
 
 // Type guard functions
 export function isCreateChatRoomParams(params: any): params is CreateChatRoomParams {
-  return params && typeof params.workspaceId === 'string' && params.roomData;
+  return (
+    params &&
+    typeof params === 'object' &&
+    typeof params.workspaceId === 'string' &&
+    params.workspaceId.length > 0 &&
+    params.roomData &&
+    typeof params.roomData === 'object' &&
+    typeof params.roomData.uuid === 'string'
+  );
 }
 
 export function isCreateUserParams(params: any): params is CreateUserParams {
