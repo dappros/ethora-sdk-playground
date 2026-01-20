@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 
 interface SDKTestingPanelProps {
-  onExecute: (method: string, params: any) => Promise<any>;
+  onExecute: (method: string, params: any, files?: File[]) => Promise<any>;
 }
 
 interface MethodForm {
@@ -28,9 +28,13 @@ const SDK_METHODS = [
     description: 'Create a user in the chat service',
     params: [
       { key: 'userId', label: 'User ID', type: 'text', required: true },
-      { key: 'firstName', label: 'First Name', type: 'text', required: false },
-      { key: 'lastName', label: 'Last Name', type: 'text', required: false },
-      { key: 'email', label: 'Email', type: 'email', required: false },
+      { key: 'email', label: 'Email', type: 'email', required: true },
+      { key: 'firstName', label: 'First Name', type: 'text', required: true },
+      { key: 'lastName', label: 'Last Name', type: 'text', required: true },
+      { key: 'password', label: 'Password', type: 'text', required: false },
+      { key: 'uuid', label: 'UUID', type: 'text', required: false },
+      { key: 'profileImage', label: 'Profile Image URL', type: 'text', required: false },
+      { key: 'profileImageFileIndex', label: 'Profile Image File Index', type: 'number', required: false },
       { key: 'displayName', label: 'Display Name', type: 'text', required: false },
     ],
   },
@@ -106,6 +110,7 @@ const SDK_METHODS = [
 export default function SDKTestingPanel({ onExecute }: SDKTestingPanelProps) {
   const [selectedMethod, setSelectedMethod] = useState<string>(SDK_METHODS[0].id);
   const [formData, setFormData] = useState<Record<string, any>>({});
+  const [files, setFiles] = useState<File[]>([]);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -115,8 +120,15 @@ export default function SDKTestingPanel({ onExecute }: SDKTestingPanelProps) {
   const handleMethodChange = (methodId: string) => {
     setSelectedMethod(methodId);
     setFormData({});
+    setFiles([]);
     setResult(null);
     setError(null);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setFiles(Array.from(e.target.files));
+    }
   };
 
   const autoGenerate = () => {
@@ -141,24 +153,24 @@ export default function SDKTestingPanel({ onExecute }: SDKTestingPanelProps) {
         generated[param.key] = 'John';
       } else if (param.key === 'lastName') {
         generated[param.key] = 'Doe';
+      } else if (param.key === 'password') {
+        generated[param.key] = 'Qwerty123';
       } else if (param.key === 'displayName') {
         generated[param.key] = 'John Doe';
       } else if (param.key === 'userIds') {
         generated[param.key] = `user-1,user-2,user-3`;
       } else if (param.key === 'users') {
-        generated[param.key] = JSON.stringify(
+            generated[param.key] = JSON.stringify(
           [
             {
-              xmppUsername: `appId_user-${timestamp}-1`,
+              email: `user1-${timestamp}@example.com`,
               firstName: 'John',
               lastName: 'Doe',
-              email: `user1-${timestamp}@example.com`,
             },
             {
-              xmppUsername: `appId_user-${timestamp}-2`,
+              email: `user2-${timestamp}@example.com`,
               firstName: 'Jane',
               lastName: 'Smith',
-              email: `user2-${timestamp}@example.com`,
             },
           ],
           null,
@@ -218,9 +230,15 @@ export default function SDKTestingPanel({ onExecute }: SDKTestingPanelProps) {
         params = {
           userId: formData.userId,
           userData: {
-            ...(formData.firstName && { firstName: formData.firstName }),
-            ...(formData.lastName && { lastName: formData.lastName }),
-            ...(formData.email && { email: formData.email }),
+            email: formData.email,
+            firstName: formData.firstName,
+            lastName: formData.lastName,
+            ...(formData.password && { password: formData.password }),
+            ...(formData.uuid && { uuid: formData.uuid }),
+            ...(formData.profileImage && { profileImage: formData.profileImage }),
+            ...(formData.profileImageFileIndex !== undefined && {
+              profileImageFileIndex: Number(formData.profileImageFileIndex),
+            }),
             ...(formData.displayName && { displayName: formData.displayName }),
           },
         };
@@ -237,7 +255,8 @@ export default function SDKTestingPanel({ onExecute }: SDKTestingPanelProps) {
         params = { workspaceId: formData.workspaceId };
       }
 
-      const response = await onExecute(selectedMethod, params);
+      // Send request with files if present
+      const response = await onExecute(selectedMethod, params, files.length > 0 ? files : undefined);
       setResult(response);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -247,8 +266,8 @@ export default function SDKTestingPanel({ onExecute }: SDKTestingPanelProps) {
   };
 
   return (
-    <div className="h-full overflow-y-auto p-4 lg:p-6 bg-white dark:bg-gray-900">
-      <div className="mb-6 sticky top-0 bg-white dark:bg-gray-900 pb-4 border-b border-gray-200 dark:border-gray-800 z-10">
+    <div className="h-full overflow-y-auto px-4 lg:px-6 pb-4 lg:pb-6 bg-white dark:bg-gray-900">
+      <div className="mb-6 sticky top-0 bg-white dark:bg-gray-900 pt-4 lg:pt-6 pb-4 border-b border-gray-200 dark:border-gray-800 z-10">
         <h2 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white mb-2">
           SDK Testing
         </h2>
@@ -287,12 +306,32 @@ export default function SDKTestingPanel({ onExecute }: SDKTestingPanelProps) {
                 {param.label}
                 {param.required && <span className="text-red-500 ml-1">*</span>}
               </label>
-              {param.type === 'textarea' ? (
+              {param.type === 'file' ? (
+                <div>
+                  <input
+                    type="file"
+                    multiple={selectedMethod === 'updateUsers'}
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white text-sm"
+                  />
+                  {files.length > 0 && (
+                    <div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+                      {files.length} file(s) selected
+                    </div>
+                  )}
+                  {param.key === 'profileImageFileIndex' && files.length > 0 && (
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-500">
+                      Use index 0-{files.length - 1} to reference uploaded files
+                    </p>
+                  )}
+                </div>
+              ) : param.type === 'textarea' ? (
                 <textarea
                   value={formData[param.key] || ''}
                   onChange={(e) => handleInputChange(param.key, e.target.value)}
-                  placeholder={param.defaultValue || `Enter ${param.label.toLowerCase()}`}
-                  required={param.required}
+                  placeholder={typeof param.defaultValue === 'string' ? param.defaultValue : `Enter ${param.label.toLowerCase()}`}
+                  required={!!param.required}
                   rows={6}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white text-sm font-mono"
                 />
@@ -318,13 +357,47 @@ export default function SDKTestingPanel({ onExecute }: SDKTestingPanelProps) {
                       param.type === 'number' ? Number(e.target.value) : e.target.value
                     )
                   }
-                  placeholder={param.defaultValue || `Enter ${param.label.toLowerCase()}`}
-                  required={param.required}
+                  placeholder={typeof param.defaultValue === 'string' ? param.defaultValue : `Enter ${param.label.toLowerCase()}`}
+                  required={!!param.required}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white text-sm"
                 />
               )}
             </div>
           ))}
+
+          {/* File upload section for createUser and updateUsers */}
+          {(selectedMethod === 'createUser' || selectedMethod === 'updateUsers') && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Profile Images (Optional)
+              </label>
+              <input
+                type="file"
+                multiple={selectedMethod === 'updateUsers'}
+                accept="image/*"
+                onChange={handleFileChange}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white text-sm"
+              />
+              {files.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                    {files.length} file(s) selected:
+                  </p>
+                  <ul className="text-xs text-gray-500 dark:text-gray-500 list-disc list-inside">
+                    {files.map((file, index) => (
+                      <li key={index}>
+                        {file.name} (index: {index})
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
+                    Use <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">profileImageFileIndex</code> field
+                    with index 0-{files.length - 1} to assign images to users.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="flex gap-3">
             <button

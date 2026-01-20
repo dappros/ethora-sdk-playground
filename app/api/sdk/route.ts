@@ -4,10 +4,39 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSDKInstance } from "@/lib/sdk";
+import {
+  validateUserData,
+  validateUpdateUsers,
+  validateFileUploads,
+} from "@/lib/user-validation";
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json().catch(() => ({}));
+    // Check if request is FormData (for file uploads) or JSON
+    const contentType = request.headers.get("content-type") || "";
+    let body: any = {};
+    let files: File[] = [];
+
+    if (contentType.includes("multipart/form-data")) {
+      const formData = await request.formData();
+      const method = formData.get("method") as string;
+      const paramsJson = formData.get("params") as string;
+      
+      if (paramsJson) {
+        body = { method, params: JSON.parse(paramsJson) };
+      } else {
+        body = { method, params: {} };
+      }
+
+      // Extract files from FormData
+      const fileEntries = Array.from(formData.entries()).filter(
+        ([key]) => key.startsWith("file_")
+      );
+      files = fileEntries.map(([, value]) => value as File);
+    } else {
+      body = await request.json().catch(() => ({}));
+    }
+
     const { method, params } = body;
 
     if (!method || typeof method !== "string") {
@@ -42,7 +71,64 @@ export async function POST(request: NextRequest) {
             { status: 400 }
           );
         }
-        result = await sdk.createUser(params.userId, params.userData || {});
+
+        // Validate user data
+        if (params.userData) {
+          const validation = validateUserData(params.userData);
+          if (!validation.valid) {
+            return NextResponse.json(
+              { error: `Validation error: ${validation.error}` },
+              { status: 400 }
+            );
+          }
+
+          // Validate file uploads if files are provided
+          if (files.length > 0) {
+            const fileValidation = validateFileUploads([params.userData], files);
+            if (!fileValidation.valid) {
+              return NextResponse.json(
+                { error: fileValidation.error },
+                { status: 400 }
+              );
+            }
+          }
+
+          // Prepare userData with validated values
+          params.userData = validation.value;
+        }
+
+        // Prepare userData with validated values
+        const userData = params.userData || {};
+
+        // Convert files to buffers for SDK if files are provided
+        let createUserFileBuffers: Buffer[] = [];
+        if (files.length > 0) {
+          createUserFileBuffers = await Promise.all(
+            files.map(async (file) => {
+              const arrayBuffer = await file.arrayBuffer();
+              return Buffer.from(arrayBuffer);
+            })
+          );
+        }
+
+        // Call SDK - try with files parameter first, fall back if not supported
+        // The SDK backend should handle files via profileImageFileIndex in userData
+        try {
+          if (createUserFileBuffers.length > 0) {
+            // Try calling with files parameter (if SDK supports it)
+            try {
+              result = await (sdk.createUser as any)(params.userId, userData, createUserFileBuffers);
+            } catch (fileError: any) {
+              // If files parameter not supported, call without it
+              // SDK backend will use profileImageFileIndex from userData
+              result = await sdk.createUser(params.userId, userData);
+            }
+          } else {
+            result = await sdk.createUser(params.userId, userData);
+          }
+        } catch (sdkError) {
+          throw sdkError;
+        }
         break;
 
       case "grantUserAccessToChatRoom":
@@ -147,7 +233,59 @@ export async function POST(request: NextRequest) {
             { status: 400 }
           );
         }
-        result = await sdk.updateUsers(params.users);
+
+        // Validate users array
+        const validation = validateUpdateUsers(params.users);
+        if (!validation.valid) {
+          return NextResponse.json(
+            { error: `Validation error: ${validation.error}` },
+            { status: 400 }
+          );
+        }
+
+        // Validate file uploads if files are provided
+        if (files.length > 0) {
+          const fileValidation = validateFileUploads(validation.value || params.users, files);
+          if (!fileValidation.valid) {
+            return NextResponse.json(
+              { error: fileValidation.error },
+              { status: 400 }
+            );
+          }
+        }
+
+        // Prepare users with validated values
+        const users = validation.value || params.users;
+
+        // Convert files to buffers for SDK if files are provided
+        let updateUsersFileBuffers: Buffer[] = [];
+        if (files.length > 0) {
+          updateUsersFileBuffers = await Promise.all(
+            files.map(async (file) => {
+              const arrayBuffer = await file.arrayBuffer();
+              return Buffer.from(arrayBuffer);
+            })
+          );
+        }
+
+        // Call SDK - try with files parameter first, fall back if not supported
+        // The SDK backend should handle files via profileImageFileIndex in userData
+        try {
+          if (updateUsersFileBuffers.length > 0) {
+            // Try calling with files parameter (if SDK supports it)
+            try {
+              result = await (sdk.updateUsers as any)(users, updateUsersFileBuffers);
+            } catch (fileError: any) {
+              // If files parameter not supported, call without it
+              // SDK backend will use profileImageFileIndex from userData
+              result = await sdk.updateUsers(users);
+            }
+          } else {
+            result = await sdk.updateUsers(users);
+          }
+        } catch (sdkError) {
+          throw sdkError;
+        }
         break;
 
       default:

@@ -79,14 +79,33 @@ export default function Home() {
   }, [settings, roomJID]);
 
   // Handle SDK method execution
-  const handleSDKExecute = async (method: string, params: any) => {
-    const response = await fetch('/api/sdk', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ method, params }),
-    });
+  const handleSDKExecute = async (method: string, params: any, files?: File[]) => {
+    let response: Response;
+
+    if (files && files.length > 0) {
+      // Use FormData for file uploads
+      const formData = new FormData();
+      formData.append('method', method);
+      formData.append('params', JSON.stringify(params));
+      
+      files.forEach((file, index) => {
+        formData.append(`file_${index}`, file);
+      });
+
+      response = await fetch('/api/sdk', {
+        method: 'POST',
+        body: formData,
+      });
+    } else {
+      // Use JSON for regular requests
+      response = await fetch('/api/sdk', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ method, params }),
+      });
+    }
 
     if (!response.ok) {
       const errorData = await response.json();
