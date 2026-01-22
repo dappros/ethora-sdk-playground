@@ -17,12 +17,14 @@ export const userDataSchema = Joi.object({
 }).unknown(false); // Reject unknown fields
 
 // Validation for updateUsers - array of users
+// Note: email is optional for updates since the API doesn't accept it in update requests
+// Use xmppUsername as the identifier instead
 export const updateUsersSchema = Joi.array()
   .items(
     Joi.object({
-      email: Joi.string().email().trim().lowercase().required(),
-      firstName: Joi.string().min(3).required(),
-      lastName: Joi.string().min(2).required(),
+      email: Joi.string().email().trim().lowercase().optional(),
+      firstName: Joi.string().min(3).optional(),
+      lastName: Joi.string().min(2).optional(),
       password: Joi.string().min(4).optional(),
       uuid: Joi.string().trim().min(2).optional(),
       profileImage: Joi.string().optional(),
@@ -78,6 +80,7 @@ export function validateUpdateUsers(users: any[]): { valid: boolean; error?: str
   }
 
   // Validate that profileImage and profileImageFileIndex are mutually exclusive for each user
+  // Also ensure at least one identifier (xmppUsername) is present for updates
   if (value) {
     for (let i = 0; i < value.length; i++) {
       const user = value[i];
@@ -85,6 +88,13 @@ export function validateUpdateUsers(users: any[]): { valid: boolean; error?: str
         return {
           valid: false,
           error: `User at index ${i}: Cannot use both profileImage and profileImageFileIndex. Use profileImage for file URL or profileImageFileIndex for direct file upload.`,
+        };
+      }
+      // xmppUsername is required to identify which user to update (email is not accepted by API)
+      if (!user.xmppUsername) {
+        return {
+          valid: false,
+          error: `User at index ${i}: xmppUsername is required to identify the user for updates.`,
         };
       }
     }

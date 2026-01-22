@@ -149,6 +149,8 @@ export function generateSDKCode(request: RequestData): string {
       const filter: any = {};
       if (p.chatName) filter.chatName = p.chatName;
       if (p.xmppUsername) filter.xmppUsername = p.xmppUsername;
+      if (p.page !== undefined) filter.page = p.page;
+      if (p.pageSize !== undefined) filter.pageSize = p.pageSize;
       if (Object.keys(filter).length > 0) {
         return `await sdk.getUsers(${JSON.stringify(filter)});`;
       }

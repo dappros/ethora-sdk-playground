@@ -30,6 +30,8 @@ export interface RoomData extends Record<string, unknown> {
 export interface GetUsersFilter {
   chatName?: string;
   xmppUsername?: string;
+  page?: number;
+  pageSize?: number;
 }
 
 // SDK Method Parameter Types
@@ -72,6 +74,8 @@ export interface DeleteUsersParams {
 export interface GetUsersParams {
   chatName?: string;
   xmppUsername?: string;
+  page?: number;
+  pageSize?: number;
 }
 
 export interface UpdateUsersParams {
@@ -158,8 +162,11 @@ export function isDeleteUsersParams(params: any): params is DeleteUsersParams {
 }
 
 export function isGetUsersParams(params: any): params is GetUsersParams {
-  return params && (params.chatName === undefined || typeof params.chatName === 'string') &&
-    (params.xmppUsername === undefined || typeof params.xmppUsername === 'string');
+  return params && 
+    (params.chatName === undefined || typeof params.chatName === 'string') &&
+    (params.xmppUsername === undefined || typeof params.xmppUsername === 'string') &&
+    (params.page === undefined || (typeof params.page === 'number' && params.page > 0)) &&
+    (params.pageSize === undefined || (typeof params.pageSize === 'number' && params.pageSize > 0 && params.pageSize <= 500));
 }
 
 export function isUpdateUsersParams(params: any): params is UpdateUsersParams {

@@ -286,16 +286,55 @@ export async function POST(request: NextRequest) {
       }
 
       case "getUsers": {
-        // getUsers is optional, so we don't need strict validation
+        // Convert page and pageSize to numbers if they are strings
+        if (params.page !== undefined) {
+          params.page = typeof params.page === 'string' ? Number(params.page) : params.page;
+        }
+        if (params.pageSize !== undefined) {
+          params.pageSize = typeof params.pageSize === 'string' ? Number(params.pageSize) : params.pageSize;
+        }
+
+        // Validate pageSize if provided (max 500)
+        if (params.pageSize !== undefined && params.pageSize !== null) {
+          if (typeof params.pageSize !== 'number' || isNaN(params.pageSize) || params.pageSize <= 0 || params.pageSize > 500) {
+            const error = createSDKError(
+              "Invalid pageSize: must be a number between 1 and 500",
+              "INVALID_PARAMS",
+              ["pageSize must be between 1 and 500", "Default pageSize is 100 if not provided"]
+            );
+            return NextResponse.json(
+              { error: error.message, suggestions: error.suggestions, code: error.code },
+              { status: 400 }
+            );
+          }
+        }
+
+        // Validate page if provided
+        if (params.page !== undefined && params.page !== null) {
+          if (typeof params.page !== 'number' || isNaN(params.page) || params.page <= 0) {
+            const error = createSDKError(
+              "Invalid page: must be a positive number",
+              "INVALID_PARAMS",
+              ["page must be a positive number (1, 2, 3, ...)"]
+            );
+            return NextResponse.json(
+              { error: error.message, suggestions: error.suggestions, code: error.code },
+              { status: 400 }
+            );
+          }
+        }
+
+        // Build filter object with pagination
+        const filter: any = {};
+        if (params.chatName) filter.chatName = params.chatName;
+        if (params.xmppUsername) filter.xmppUsername = params.xmppUsername;
+        if (params.page !== undefined && params.page !== null) filter.page = params.page;
+        if (params.pageSize !== undefined && params.pageSize !== null) filter.pageSize = params.pageSize;
+
+        console.log('getUsers filter:', JSON.stringify(filter, null, 2));
+
         result = await sdk.getUsers(
-          params.chatName || params.xmppUsername
-            ? {
-                ...(params.chatName && { chatName: params.chatName }),
-                ...(params.xmppUsername && {
-                  xmppUsername: params.xmppUsername,
-                }),
-              }
-            : undefined
+          Object.keys(filter).length > 0 ? filter : undefined
         );
         break;
       }
@@ -357,6 +396,13 @@ export async function POST(request: NextRequest) {
         // Prepare users with validated values
         const users = validation.value || params.users;
 
+        // Remove 'email' field from users before sending to API
+        // The API doesn't allow 'email' in update requests - use xmppUsername as identifier instead
+        const usersForAPI = users.map((user: any) => {
+          const { email, ...userWithoutEmail } = user;
+          return userWithoutEmail;
+        });
+
         // Convert files to buffers for SDK if files are provided
         // NOTE: The @ethora/sdk-backend updateUsers method signature is:
         // updateUsers(users: UpdateUserData[], files?: Buffer[]): Promise<any>
@@ -375,9 +421,9 @@ export async function POST(request: NextRequest) {
         // Call SDK with files parameter if files are provided
         // The SDK backend expects files as Buffer[] in the second parameter
         if (updateUsersFileBuffers.length > 0) {
-          result = await (sdk.updateUsers as any)(users, updateUsersFileBuffers);
+          result = await (sdk.updateUsers as any)(usersForAPI, updateUsersFileBuffers);
         } else {
-          result = await sdk.updateUsers(users);
+          result = await sdk.updateUsers(usersForAPI);
         }
         break;
       }
@@ -401,6 +447,21 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("Error executing SDK method:", error);
+
+    // Extract actual API error message from Axios errors
+    let actualErrorMessage = error instanceof Error ? error.message : "Failed to execute SDK method";
+    let httpStatus = 500;
+    
+    // Check if it's an AxiosError with response data
+    if (error && typeof error === 'object' && 'response' in error) {
+      const axiosError = error as any;
+      if (axiosError.response?.data?.error) {
+        actualErrorMessage = axiosError.response.data.error;
+        httpStatus = axiosError.response.status || 500;
+      } else if (axiosError.response?.status) {
+        httpStatus = axiosError.response.status;
+      }
+    }
 
     // Check if it's a configuration error
     if (error instanceof Error && error.message.includes("Missing required")) {
@@ -454,7 +515,7 @@ export async function POST(request: NextRequest) {
 
     const sdkError = createErrorResponse(
       SDKErrorCode.SDK_EXECUTION_ERROR,
-      error instanceof Error ? error.message : "Failed to execute SDK method"
+      actualErrorMessage
     );
 
     return NextResponse.json(
@@ -464,7 +525,7 @@ export async function POST(request: NextRequest) {
         code: sdkError.code,
         details: error instanceof Error ? error.stack : undefined,
       },
-      { status: sdkError.httpStatus || 500 }
+      { status: httpStatus || sdkError.httpStatus || 500 }
     );
   }
 }

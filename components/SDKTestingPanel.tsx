@@ -110,6 +110,8 @@ const SDK_METHODS = [
     params: [
       { key: 'chatName', label: 'Chat Name (optional)', type: 'text', required: false },
       { key: 'xmppUsername', label: 'XMPP Username (optional)', type: 'text', required: false },
+      { key: 'page', label: 'Page (optional)', type: 'number', required: false },
+      { key: 'pageSize', label: 'Page Size (optional, max 500, default 100)', type: 'number', required: false },
     ],
   },
   {
@@ -338,6 +340,14 @@ export default function SDKTestingPanel({ onExecute }: SDKTestingPanelProps) {
         params = {};
         if (formData.chatName) params.chatName = formData.chatName;
         if (formData.xmppUsername) params.xmppUsername = formData.xmppUsername;
+        if (formData.page !== undefined && formData.page !== null && formData.page !== '' && !isNaN(Number(formData.page)) && Number(formData.page) > 0) {
+          params.page = Number(formData.page);
+        }
+        if (formData.pageSize !== undefined && formData.pageSize !== null && formData.pageSize !== '' && !isNaN(Number(formData.pageSize)) && Number(formData.pageSize) > 0) {
+          const pageSizeNum = Number(formData.pageSize);
+          params.pageSize = pageSizeNum;
+        }
+        console.log('getUsers params before send:', JSON.stringify(params, null, 2));
       } else if (selectedMethod === 'createChatName') {
         params = {
           workspaceId: formData.workspaceId,
