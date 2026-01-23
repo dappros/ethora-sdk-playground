@@ -137,7 +137,10 @@ export default function Home() {
     }
 
     const data = await response.json();
-    return data.result;
+    return {
+      result: data.result,
+      serverToken: data.serverToken, // Include server token for logging
+    };
   };
 
   // Show error banner if setup fails
@@ -244,7 +247,7 @@ export default function Home() {
         </div>
       ) : (
         <div className="flex-1 overflow-hidden">
-          <SDKTestingPanel onExecute={handleSDKExecute} />
+          <SDKTestingPanel onExecute={handleSDKExecute} token={settings.token} />
         </div>
       )}
     </div>

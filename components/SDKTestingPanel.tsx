@@ -11,6 +11,7 @@ import ResponseLogger, { type LogEntry } from './ResponseLogger';
 
 interface SDKTestingPanelProps {
   onExecute: (method: string, params: any, files?: File[]) => Promise<any>;
+  token?: string;
 }
 
 interface APIError {
@@ -124,7 +125,7 @@ const SDK_METHODS = [
   },
 ];
 
-export default function SDKTestingPanel({ onExecute }: SDKTestingPanelProps) {
+export default function SDKTestingPanel({ onExecute, token }: SDKTestingPanelProps) {
   const [selectedMethod, setSelectedMethod] = useState<SDKMethodName>(SDK_METHODS[0].id as SDKMethodName);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [files, setFiles] = useState<File[]>([]);
@@ -391,6 +392,18 @@ export default function SDKTestingPanel({ onExecute }: SDKTestingPanelProps) {
         params = { workspaceId: formData.workspaceId };
       }
 
+      // Generate headers info (x-custom-token is automatically added by SDK backend)
+      const headers: Record<string, string> = {
+        'Content-Type': files.length > 0 ? 'multipart/form-data' : 'application/json',
+      };
+      
+      // Add placeholder for x-custom-token for server-to-server methods
+      // The actual token will be updated after the request completes
+      if (['updateUsers', 'createUser', 'getUsers', 'deleteUsers', 'createChatRoom', 
+           'deleteChatRoom', 'grantUserAccessToChatRoom', 'grantChatbotAccessToChatRoom'].includes(selectedMethod)) {
+        headers['x-custom-token'] = 'Generating...';
+      }
+
       // Log request
       requestLog = {
         id: `req-${Date.now()}`,
@@ -398,18 +411,40 @@ export default function SDKTestingPanel({ onExecute }: SDKTestingPanelProps) {
         type: 'request',
         method: selectedMethod,
         data: { method: selectedMethod, params, filesCount: files.length },
+        headers,
       };
       setLogs((prev) => [requestLog!, ...prev.slice(0, 49)]); // Keep last 50 logs
 
       // Send request with files if present
-      const response = await onExecute(selectedMethod, params, files.length > 0 ? files : undefined);
+      const executeResult = await onExecute(selectedMethod, params, files.length > 0 ? files : undefined);
       
       const endTime = Date.now();
       const elapsed = endTime - startTime;
       setResponseTime(elapsed);
       
+      // Extract result and serverToken from response
+      const response = executeResult?.result !== undefined ? executeResult.result : executeResult;
+      const serverToken = executeResult?.serverToken;
+      
       setResult(response);
       setError(null);
+
+      // Update headers with actual server token if available
+      if (serverToken && requestLog) {
+        const updatedHeaders = { ...requestLog.headers };
+        if (updatedHeaders['x-custom-token']) {
+          updatedHeaders['x-custom-token'] = serverToken;
+        }
+        // Update the request log with actual token
+        setLogs((prev) => {
+          const updated = [...prev];
+          const index = updated.findIndex(log => log.id === requestLog!.id);
+          if (index !== -1) {
+            updated[index] = { ...updated[index], headers: updatedHeaders };
+          }
+          return updated;
+        });
+      }
 
       // Log response
       const responseLog: LogEntry = {
@@ -419,6 +454,10 @@ export default function SDKTestingPanel({ onExecute }: SDKTestingPanelProps) {
         method: selectedMethod,
         data: response,
         responseTime: elapsed,
+        headers: {
+          'Status': '200 OK',
+          'Content-Type': 'application/json',
+        },
       };
       setLogs((prev) => [responseLog, ...prev.slice(0, 49)]);
 
@@ -443,6 +482,10 @@ export default function SDKTestingPanel({ onExecute }: SDKTestingPanelProps) {
         method: selectedMethod,
         data: err instanceof Error ? { message: err.message, stack: err.stack } : err,
         responseTime: elapsed,
+        headers: {
+          'Status': 'Error',
+          'Content-Type': 'application/json',
+        },
       };
       setLogs((prev) => [errorLog, ...prev.slice(0, 49)]);
       // Parse structured error response
@@ -568,34 +611,93 @@ export default function SDKTestingPanel({ onExecute }: SDKTestingPanelProps) {
   };
 
   const handleExportCode = () => {
-    let params: any = {};
-    // Reconstruct params similar to handleSubmit
-    if (selectedMethod === 'deleteUsers') {
-      params.userIds = formData.userIds
-        ? formData.userIds.split(',').map((id: string) => id.trim())
-        : [];
-    } else if (selectedMethod === 'updateUsers') {
-      try {
-        params.users = JSON.parse(formData.users || '[]');
-      } catch {
-        params.users = [];
+    try {
+      let params: any = {};
+      // Reconstruct params similar to handleSubmit
+      if (selectedMethod === 'deleteUsers') {
+        params.userIds = formData.userIds
+          ? formData.userIds.split(',').map((id: string) => id.trim())
+          : [];
+      } else if (selectedMethod === 'updateUsers') {
+        try {
+          params.users = JSON.parse(formData.users || '[]');
+        } catch {
+          params.users = [];
+        }
+      } else if (selectedMethod === 'getUsers') {
+        params = {};
+        if (formData.chatName) params.chatName = formData.chatName;
+        if (formData.xmppUsername) params.xmppUsername = formData.xmppUsername;
+        if (formData.page !== undefined && formData.page !== null && formData.page !== '' && !isNaN(Number(formData.page)) && Number(formData.page) > 0) {
+          params.page = Number(formData.page);
+        }
+        if (formData.pageSize !== undefined && formData.pageSize !== null && formData.pageSize !== '' && !isNaN(Number(formData.pageSize)) && Number(formData.pageSize) > 0) {
+          const pageSizeNum = Number(formData.pageSize);
+          params.pageSize = pageSizeNum;
+        }
+      } else if (selectedMethod === 'createChatName') {
+        params = {
+          workspaceId: formData.workspaceId,
+          full: formData.full !== undefined ? formData.full : true,
+        };
+      } else if (selectedMethod === 'createChatUserJwtToken') {
+        params = { userId: formData.userId };
+      } else if (selectedMethod === 'grantChatbotAccessToChatRoom') {
+        params = { workspaceId: formData.workspaceId };
+      } else if (selectedMethod === 'grantUserAccessToChatRoom') {
+        params = {
+          workspaceId: formData.workspaceId,
+          userId: formData.userId,
+        };
+      } else if (selectedMethod === 'createUser') {
+        params = {
+          userId: formData.userId,
+          userData: {
+            email: formData.email,
+            firstName: formData.firstName,
+            lastName: formData.lastName,
+            ...(formData.password && { password: formData.password }),
+            ...(formData.uuid && { uuid: formData.uuid }),
+            ...(formData.profileImage && { profileImage: formData.profileImage }),
+            ...(formData.profileImageFileIndex !== undefined && {
+              profileImageFileIndex: Number(formData.profileImageFileIndex),
+            }),
+            ...(formData.displayName && { displayName: formData.displayName }),
+          },
+        };
+      } else if (selectedMethod === 'createChatRoom') {
+        params = {
+          workspaceId: formData.workspaceId,
+          roomData: {
+            ...(formData.title && { title: formData.title }),
+            uuid: formData.workspaceId,
+            type: formData.type || 'group',
+          },
+        };
+      } else if (selectedMethod === 'deleteChatRoom') {
+        params = { workspaceId: formData.workspaceId };
+      } else {
+        params = formData;
       }
-    } else {
-      params = formData;
+
+      const code = exportRequest(
+        {
+          method: selectedMethod,
+          params,
+          files: files.length > 0 ? files : undefined,
+        },
+        exportFormat,
+        undefined,
+        token
+      );
+
+      // Copy to clipboard
+      navigator.clipboard.writeText(code);
+      alert('Code copied to clipboard!');
+    } catch (error) {
+      console.error('Error exporting code:', error);
+      alert(`Error exporting code: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-
-    const code = exportRequest(
-      {
-        method: selectedMethod,
-        params,
-        files: files.length > 0 ? files : undefined,
-      },
-      exportFormat
-    );
-
-    // Copy to clipboard
-    navigator.clipboard.writeText(code);
-    alert('Code copied to clipboard!');
   };
 
   return (
@@ -655,6 +757,7 @@ export default function SDKTestingPanel({ onExecute }: SDKTestingPanelProps) {
               <option value="curl">cURL</option>
               <option value="sdk">SDK Direct</option>
               <option value="complete">Complete Example</option>
+              <option value="direct">Direct API (x-custom-token)</option>
             </select>
             <button
               onClick={handleExportCode}

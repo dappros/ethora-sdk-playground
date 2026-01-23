@@ -61,3 +61,34 @@ export function isSDKConfigured(): boolean {
   }
 }
 
+/**
+ * Generate server-to-server JWT token (x-custom-token)
+ * This is the same token that the SDK backend uses internally
+ */
+export function generateServerToken(): string | null {
+  try {
+    // Use dynamic import to avoid issues if jsonwebtoken is not directly available
+    const jwt = require('jsonwebtoken');
+    const appId = process.env.ETHORA_CHAT_APP_ID;
+    const appSecret = process.env.ETHORA_CHAT_APP_SECRET;
+
+    if (!appId || !appSecret) {
+      return null;
+    }
+
+    return jwt.sign(
+      {
+        data: {
+          appId: appId,
+          type: 'server',
+        },
+      },
+      appSecret,
+      { expiresIn: '1h' }
+    ) as string;
+  } catch (error) {
+    console.error('Error generating server token:', error);
+    return null;
+  }
+}
+

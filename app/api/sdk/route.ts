@@ -3,7 +3,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSDKInstance } from "@/lib/sdk";
+import { getSDKInstance, generateServerToken } from "@/lib/sdk";
 import {
   validateUserData,
   validateUpdateUsers,
@@ -396,12 +396,10 @@ export async function POST(request: NextRequest) {
         // Prepare users with validated values
         const users = validation.value || params.users;
 
-        // Remove 'email' field from users before sending to API
-        // The API doesn't allow 'email' in update requests - use xmppUsername as identifier instead
-        const usersForAPI = users.map((user: any) => {
-          const { email, ...userWithoutEmail } = user;
-          return userWithoutEmail;
-        });
+        // Log the request details (x-custom-token is automatically added by SDK backend)
+        console.log(`[updateUsers] Preparing to update ${users.length} user(s)`);
+        console.log(`[updateUsers] Request payload:`, JSON.stringify({ users }, null, 2));
+        console.log(`[updateUsers] Note: x-custom-token header is automatically added by SDK backend using ETHORA_CHAT_APP_ID and ETHORA_CHAT_APP_SECRET`);
 
         // Convert files to buffers for SDK if files are provided
         // NOTE: The @ethora/sdk-backend updateUsers method signature is:
@@ -419,12 +417,15 @@ export async function POST(request: NextRequest) {
         }
 
         // Call SDK with files parameter if files are provided
-        // The SDK backend expects files as Buffer[] in the second parameter
+        // The SDK backend automatically generates and sends x-custom-token header
+        // using ETHORA_CHAT_APP_ID and ETHORA_CHAT_APP_SECRET from environment variables
         if (updateUsersFileBuffers.length > 0) {
-          result = await (sdk.updateUsers as any)(usersForAPI, updateUsersFileBuffers);
+          result = await (sdk.updateUsers as any)(users, updateUsersFileBuffers);
         } else {
-          result = await sdk.updateUsers(usersForAPI);
+          result = await sdk.updateUsers(users);
         }
+        
+        console.log(`[updateUsers] Successfully updated ${users.length} user(s)`);
         break;
       }
 
@@ -440,10 +441,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Generate server token for logging purposes
+    const serverToken = generateServerToken();
+
     return NextResponse.json({
       success: true,
       method,
       result,
+      serverToken, // Include the actual x-custom-token value
     });
   } catch (error) {
     console.error("Error executing SDK method:", error);

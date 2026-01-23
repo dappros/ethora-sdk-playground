@@ -9,6 +9,7 @@ export interface LogEntry {
   method?: string;
   data: any;
   responseTime?: number;
+  headers?: Record<string, string>;
 }
 
 interface ResponseLoggerProps {
@@ -18,6 +19,7 @@ interface ResponseLoggerProps {
 
 export default function ResponseLogger({ logs, onClear }: ResponseLoggerProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [expandedHeadersIds, setExpandedHeadersIds] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState<'all' | 'request' | 'response' | 'error'>('all');
 
   const toggleExpand = (id: string) => {
@@ -28,6 +30,16 @@ export default function ResponseLogger({ logs, onClear }: ResponseLoggerProps) {
       newExpanded.add(id);
     }
     setExpandedIds(newExpanded);
+  };
+
+  const toggleHeadersExpand = (id: string) => {
+    const newExpanded = new Set(expandedHeadersIds);
+    if (newExpanded.has(id)) {
+      newExpanded.delete(id);
+    } else {
+      newExpanded.add(id);
+    }
+    setExpandedHeadersIds(newExpanded);
   };
 
   const filteredLogs = logs.filter((log) => filter === 'all' || log.type === filter);
@@ -157,6 +169,38 @@ export default function ResponseLogger({ logs, onClear }: ResponseLoggerProps) {
                       {formatTime(log.timestamp)}
                     </span>
                   </div>
+                  {log.headers && Object.keys(log.headers).length > 0 && (
+                    <div className="mb-2 p-2 bg-gray-100 dark:bg-gray-800 rounded text-xs">
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="font-semibold text-gray-700 dark:text-gray-300">Headers:</div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleHeadersExpand(log.id);
+                          }}
+                          className="px-2 py-0.5 text-xs bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded transition-colors"
+                        >
+                          {expandedHeadersIds.has(log.id) ? 'Collapse' : 'Expand'}
+                        </button>
+                      </div>
+                      <div className="space-y-1">
+                        {Object.entries(log.headers).map(([key, value]) => {
+                          const isExpanded = expandedHeadersIds.has(log.id);
+                          const isLongValue = typeof value === 'string' && value.length > 80;
+                          const displayValue = isExpanded || !isLongValue 
+                            ? value 
+                            : `${value.substring(0, 80)}...`;
+                          
+                          return (
+                            <div key={key} className="font-mono break-words">
+                              <span className="text-gray-600 dark:text-gray-400 font-semibold">{key}:</span>{' '}
+                              <span className="text-gray-800 dark:text-gray-200">{displayValue}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                   {isExpanded ? (
                     <pre className="text-xs font-mono bg-gray-900 dark:bg-gray-950 text-gray-100 p-2 rounded mt-2 overflow-x-auto">
                       {dataStr}

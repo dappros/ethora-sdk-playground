@@ -7,6 +7,7 @@ export interface RequestData {
   params: any;
   files?: File[];
   baseUrl?: string;
+  token?: string;
 }
 
 /**
@@ -16,10 +17,11 @@ export function generateCurlCommand(request: RequestData, baseUrl: string = 'htt
   const url = `${baseUrl}/api/sdk`;
   const method = request.method;
   const params = request.params;
+  const token = request.token;
 
   if (request.files && request.files.length > 0) {
     // Multipart form data
-    const parts: string[] = [`curl -X POST "${url}"`];
+    const parts: string[] = token ? [`# Client JWT Token: ${token}`, `curl -X POST "${url}"`] : [`curl -X POST "${url}"`];
 
     // Add form fields
     parts.push(`  -F "method=${method}"`);
@@ -34,7 +36,8 @@ export function generateCurlCommand(request: RequestData, baseUrl: string = 'htt
   } else {
     // JSON request
     const jsonBody = JSON.stringify({ method, params }, null, 2);
-    return `curl -X POST "${url}" \\
+    const tokenComment = token ? `# Client JWT Token: ${token}\n` : '';
+    return `${tokenComment}curl -X POST "${url}" \\
   -H "Content-Type: application/json" \\
   -d '${jsonBody.replace(/'/g, "'\\''")}'`;
   }
@@ -47,10 +50,11 @@ export function generateFetchCode(request: RequestData, baseUrl: string = 'http:
   const url = `${baseUrl}/api/sdk`;
   const method = request.method;
   const params = request.params;
+  const token = request.token;
 
   if (request.files && request.files.length > 0) {
     // Multipart form data
-    return `const formData = new FormData();
+    return `${token ? `// Client JWT Token: ${token}\n` : ''}const formData = new FormData();
 formData.append('method', '${method}');
 formData.append('params', JSON.stringify(${JSON.stringify(params, null, 2)}));
 
@@ -65,7 +69,7 @@ const data = await response.json();
 console.log(data);`;
   } else {
     // JSON request
-    return `const response = await fetch('${url}', {
+    return `${token ? `// Client JWT Token: ${token}\n` : ''}const response = await fetch('${url}', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
@@ -88,10 +92,11 @@ export function generateAxiosCode(request: RequestData, baseUrl: string = 'http:
   const url = `${baseUrl}/api/sdk`;
   const method = request.method;
   const params = request.params;
+  const token = request.token;
 
   if (request.files && request.files.length > 0) {
     // Multipart form data
-    return `import axios from 'axios';
+    return `${token ? `// Client JWT Token: ${token}\n` : ''}import axios from 'axios';
 
 const formData = new FormData();
 formData.append('method', '${method}');
@@ -108,7 +113,7 @@ const response = await axios.post('${url}', formData, {
 console.log(response.data);`;
   } else {
     // JSON request
-    return `import axios from 'axios';
+    return `${token ? `// Client JWT Token: ${token}\n` : ''}import axios from 'axios';
 
 const response = await axios.post('${url}', {
   method: '${method}',
@@ -129,6 +134,7 @@ console.log(response.data);`;
 export function generateSDKCode(request: RequestData): string {
   const method = request.method;
   const params = request.params;
+  const token = request.token;
 
   // Map method names to SDK calls
   const methodMap: Record<string, (params: any) => string> = {
@@ -160,12 +166,19 @@ export function generateSDKCode(request: RequestData): string {
   };
 
   const generator = methodMap[method];
+  let code = '';
   if (generator) {
-    return generator(params);
+    code = generator(params);
+  } else {
+    // Fallback for unknown methods
+    code = `await sdk.${method}(${JSON.stringify(params, null, 2)});`;
   }
 
-  // Fallback for unknown methods
-  return `await sdk.${method}(${JSON.stringify(params, null, 2)});`;
+  // Add token comment if available
+  if (token) {
+    return `// Client JWT Token: ${token}\n${code}`;
+  }
+  return code;
 }
 
 /**
@@ -176,6 +189,7 @@ export function generateCompleteCodeExample(
   language: 'typescript' | 'javascript' = 'typescript'
 ): string {
   const sdkCode = generateSDKCode(request);
+  const token = request.token;
   const importStatement =
     language === 'typescript'
       ? "import { getSDKInstance } from '@ethora/sdk-backend';"
@@ -194,27 +208,186 @@ try {
 }
 
 /**
+ * Generate direct API call code (calls Ethora API directly with x-custom-token)
+ */
+function generateDirectAPICode(request: RequestData, apiUrl: string = 'https://api.ethoradev.com'): string {
+  const method = request.method;
+  const params = request.params;
+
+  // Map SDK methods to API endpoints
+  const apiEndpoints: Record<string, { endpoint: string; httpMethod: string }> = {
+    updateUsers: { endpoint: '/v1/chats/users', httpMethod: 'PATCH' },
+    createUser: { endpoint: '/v1/chats/users', httpMethod: 'POST' },
+    getUsers: { endpoint: '/v1/chats/users', httpMethod: 'GET' },
+    deleteUsers: { endpoint: '/v1/chats/users', httpMethod: 'DELETE' },
+    createChatRoom: { endpoint: '/v1/chats/rooms', httpMethod: 'POST' },
+    deleteChatRoom: { endpoint: '/v1/chats/rooms', httpMethod: 'DELETE' },
+    grantUserAccessToChatRoom: { endpoint: '/v1/chats/users-access', httpMethod: 'POST' },
+    grantChatbotAccessToChatRoom: { endpoint: '/v1/chats/bots-access', httpMethod: 'POST' },
+  };
+
+  const apiInfo = apiEndpoints[method];
+  if (!apiInfo) {
+    return `// Direct API call not available for method: ${method}\n// Use SDK or local API endpoint instead`;
+  }
+
+  const url = `${apiUrl}${apiInfo.endpoint}`;
+  const httpMethod = apiInfo.httpMethod;
+
+  // Generate server-to-server token helper
+  const tokenHelper = `// Generate server-to-server JWT token
+// Requires: ETHORA_CHAT_APP_ID and ETHORA_CHAT_APP_SECRET environment variables
+import jwt from 'jsonwebtoken';
+
+async function generateServerToken(): Promise<string> {
+  const appId = process.env.ETHORA_CHAT_APP_ID;
+  const appSecret = process.env.ETHORA_CHAT_APP_SECRET;
+  
+  if (!appId || !appSecret) {
+    throw new Error('ETHORA_CHAT_APP_ID and ETHORA_CHAT_APP_SECRET must be set');
+  }
+  
+  return jwt.sign(
+    {
+      data: {
+        appId: appId,
+        type: 'server',
+      },
+    },
+    appSecret,
+    { expiresIn: '1h' }
+  );
+}`;
+
+  // Generate request code based on method
+  let requestCode = '';
+  
+  if (method === 'updateUsers') {
+    // Remove email from users array for updateUsers
+    const usersForAPI = params.users ? params.users.map((user: any) => {
+      const { email, ...userWithoutEmail } = user;
+      return userWithoutEmail;
+    }) : [];
+    
+    requestCode = `async function updateUsers() {
+  const xCustomToken = await generateServerToken();
+  
+  const response = await fetch('${url}', {
+    method: '${httpMethod}',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-custom-token': xCustomToken,
+    },
+    body: JSON.stringify({
+      users: ${JSON.stringify(usersForAPI, null, 6)},
+    }),
+  });
+
+  const data = await response.json();
+  console.log(data);
+  return data;
+}
+
+updateUsers().catch(console.error);`;
+  } else if (method === 'getUsers') {
+    const queryParams = new URLSearchParams();
+    if (params.chatName) queryParams.append('chatName', params.chatName);
+    if (params.xmppUsername) queryParams.append('xmppUsername', params.xmppUsername);
+    if (params.page) queryParams.append('page', params.page.toString());
+    if (params.pageSize) queryParams.append('pageSize', params.pageSize.toString());
+    
+    const queryString = queryParams.toString();
+    const fullUrl = queryString ? `${url}?${queryString}` : url;
+    
+    requestCode = `async function getUsers() {
+  const xCustomToken = await generateServerToken();
+  
+  const response = await fetch('${fullUrl}', {
+    method: '${httpMethod}',
+    headers: {
+      'x-custom-token': xCustomToken,
+    },
+  });
+
+  const data = await response.json();
+  console.log(data);
+  return data;
+}
+
+getUsers().catch(console.error);`;
+  } else if (method === 'deleteUsers') {
+    requestCode = `async function deleteUsers() {
+  const xCustomToken = await generateServerToken();
+  
+  const response = await fetch('${url}', {
+    method: '${httpMethod}',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-custom-token': xCustomToken,
+    },
+    body: JSON.stringify({
+      userIds: ${JSON.stringify(params.userIds, null, 6)},
+    }),
+  });
+
+  const data = await response.json();
+  console.log(data);
+  return data;
+}
+
+deleteUsers().catch(console.error);`;
+  } else {
+    requestCode = `async function ${method}() {
+  const xCustomToken = await generateServerToken();
+  
+  const response = await fetch('${url}', {
+    method: '${httpMethod}',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-custom-token': xCustomToken,
+    },
+    body: JSON.stringify(${JSON.stringify(params, null, 6)}),
+  });
+
+  const data = await response.json();
+  console.log(data);
+  return data;
+}
+
+${method}().catch(console.error);`;
+  }
+
+  return `${tokenHelper}
+
+${requestCode}`;
+}
+
+/**
  * Get all available export formats
  */
-export type ExportFormat = 'curl' | 'fetch' | 'axios' | 'sdk' | 'complete';
+export type ExportFormat = 'curl' | 'fetch' | 'axios' | 'sdk' | 'complete' | 'direct';
 
 export function exportRequest(
   request: RequestData,
   format: ExportFormat,
-  baseUrl?: string
+  baseUrl?: string,
+  token?: string
 ): string {
+  const requestWithToken = { ...request, token };
   switch (format) {
     case 'curl':
-      return generateCurlCommand(request, baseUrl);
+      return generateCurlCommand(requestWithToken, baseUrl);
     case 'fetch':
-      return generateFetchCode(request, baseUrl);
+      return generateFetchCode(requestWithToken, baseUrl);
     case 'axios':
-      return generateAxiosCode(request, baseUrl);
+      return generateAxiosCode(requestWithToken, baseUrl);
     case 'sdk':
-      return generateSDKCode(request);
+      return generateSDKCode(requestWithToken);
     case 'complete':
-      return generateCompleteCodeExample(request);
+      return generateCompleteCodeExample(requestWithToken);
+    case 'direct':
+      return generateDirectAPICode(requestWithToken);
     default:
-      return generateFetchCode(request, baseUrl);
+      return generateFetchCode(requestWithToken, baseUrl);
   }
 }
