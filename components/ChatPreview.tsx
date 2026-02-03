@@ -229,7 +229,7 @@ export default function ChatPreview({ settings }: ChatPreviewProps) {
         <Chat 
           key={`${componentKey}-${reloadKey}`} 
           roomJID={roomJID} 
-          config={chatConfig}
+          config={chatConfig as unknown as any}
         />
       </XmppProviderAny>
     </div>
