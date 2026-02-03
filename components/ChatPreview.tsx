@@ -210,6 +210,8 @@ export default function ChatPreview({ settings }: ChatPreviewProps) {
     );
   }
 
+  const XmppProviderAny = XmppProvider as unknown as React.ComponentType<React.PropsWithChildren<{}>>;
+
   return (
     <div className="h-full bg-white dark:bg-gray-900 relative">
       {/* Reload indicator */}
@@ -222,14 +224,14 @@ export default function ChatPreview({ settings }: ChatPreviewProps) {
         </div>
       )}
       
-      <XmppProvider>
+      <XmppProviderAny>
         {/* @ts-ignore - Chat component types may not be fully exported */}
         <Chat 
           key={`${componentKey}-${reloadKey}`} 
           roomJID={roomJID} 
           config={chatConfig}
         />
-      </XmppProvider>
+      </XmppProviderAny>
     </div>
   );
 }
