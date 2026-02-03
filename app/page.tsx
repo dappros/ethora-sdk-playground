@@ -1,14 +1,18 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import SettingsPanel from '@/components/SettingsPanel';
-import ChatPreview from '@/components/ChatPreview';
 import CodeBlock from '@/components/CodeBlock';
 import SDKTestingPanel from '@/components/SDKTestingPanel';
 import { defaultSettings, type PlaygroundSettings } from '@/lib/chat-config';
 import { generateCodeSnippet } from '@/lib/code-generator';
 
 type Tab = 'chat' | 'sdk';
+
+const ChatPreview = dynamic(() => import('@/components/ChatPreview'), {
+  ssr: false,
+});
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<Tab>('chat');
