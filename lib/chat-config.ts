@@ -267,6 +267,15 @@ export interface PlaygroundSettings {
   customTypingIndicatorText: string;
 }
 
+const resolveApiBaseUrl = () => {
+  const raw =
+    process.env.NEXT_PUBLIC_ETHORA_CHAT_API_URL ||
+    process.env.ETHORA_CHAT_API_URL ||
+    'https://api.ethoradev.com';
+  const trimmed = raw.replace(/\/$/, '');
+  return trimmed.endsWith('/v1') ? trimmed : `${trimmed}/v1`;
+};
+
 export const defaultSettings: PlaygroundSettings = {
   userId: 'playground-user-1',
   roomId: 'playground-room-1',
@@ -299,7 +308,7 @@ export const defaultSettings: PlaygroundSettings = {
   disableNewChatButton: false,
   botMessageAutoScroll: false,
   disableTypingIndicator: false,
-  baseUrl: 'https://api.ethoradev.com/v1',
+  baseUrl: resolveApiBaseUrl(),
   enableRoomsRetryHelperText: 'Initializing room',
   blockMessageSendingWhenProcessing: false,
   chatHeaderSettingsHide: false,
