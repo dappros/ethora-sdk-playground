@@ -205,6 +205,7 @@ export default function SettingsPanel({
               onChange={(value) => handleChange('primaryColor', value)}
             />
             <Input
+              id="primaryColorText"
               type="text"
               value={settings.primaryColor}
               onChange={(value) => handleChange('primaryColor', value)}
@@ -222,6 +223,7 @@ export default function SettingsPanel({
               onChange={(value) => handleChange('secondaryColor', value)}
             />
             <Input
+              id="secondaryColorText"
               type="text"
               value={settings.secondaryColor}
               onChange={(value) => handleChange('secondaryColor', value)}
@@ -248,6 +250,7 @@ export default function SettingsPanel({
               onChange={(value) => handleChange('backgroundChatColor', value)}
             />
             <Input
+              id="backgroundChatColorText"
               type="text"
               value={settings.backgroundChatColor || ''}
               onChange={(value) => handleChange('backgroundChatColor', value || undefined)}
