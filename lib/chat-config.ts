@@ -308,7 +308,10 @@ export const defaultSettings: PlaygroundSettings = {
   disableNewChatButton: false,
   botMessageAutoScroll: false,
   disableTypingIndicator: false,
-  baseUrl: resolveApiBaseUrl(),
+  // Use environment variable for baseUrl or fall back to default
+  baseUrl: typeof process !== 'undefined' && process.env.NEXT_PUBLIC_ETHORA_CHAT_API_URL 
+    ? `${process.env.NEXT_PUBLIC_ETHORA_CHAT_API_URL}/v1`
+    : 'https://api.ethoradev.com/v1',
   enableRoomsRetryHelperText: 'Initializing room',
   blockMessageSendingWhenProcessing: false,
   chatHeaderSettingsHide: false,

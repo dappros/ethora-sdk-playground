@@ -33,6 +33,7 @@ import {
   isDeleteUsersParams,
   isGetUsersParams,
   isUpdateUsersParams,
+  isDeleteUsersAccessParams,
   createSDKError,
   ERROR_SUGGESTIONS,
 } from "@/lib/sdk-types";
@@ -426,6 +427,22 @@ export async function POST(request: NextRequest) {
         }
         
         console.log(`[updateUsers] Successfully updated ${users.length} user(s)`);
+        break;
+      }
+
+      case "deleteUsersAccess": {
+        if (!isDeleteUsersAccessParams(params)) {
+          const error = createSDKError(
+            "Invalid parameters for deleteUsersAccess: chatName and members are required",
+            "INVALID_PARAMS",
+            ["Ensure chatName is a string", "Members must be an array of strings"]
+          );
+          return NextResponse.json(
+            { error: error.message, suggestions: error.suggestions, code: error.code, field: error.field },
+            { status: 400 }
+          );
+        }
+        result = await (sdk as any).deleteUsersAccess(params.chatName, params.members);
         break;
       }
 

@@ -91,4 +91,3 @@ export function generateServerToken(): string | null {
     return null;
   }
 }
-

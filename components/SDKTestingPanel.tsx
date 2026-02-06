@@ -123,6 +123,15 @@ const SDK_METHODS = [
       { key: 'users', label: 'Users JSON Array', type: 'textarea', required: true },
     ],
   },
+  {
+    id: 'deleteUsersAccess',
+    name: 'Delete Users Access',
+    description: 'Delete user access from a chat',
+    params: [
+      { key: 'chatName', label: 'Chat Name', type: 'text', required: true },
+      { key: 'members', label: 'Members (comma-separated)', type: 'text', required: true },
+    ],
+  },
 ];
 
 export default function SDKTestingPanel({ onExecute, token }: SDKTestingPanelProps) {
@@ -224,6 +233,10 @@ export default function SDKTestingPanel({ onExecute, token }: SDKTestingPanelPro
         );
       } else if (param.type === 'checkbox') {
         generated[param.key] = true;
+      } else if (param.key === 'chatName') {
+        generated[param.key] = `chat-${timestamp}`;
+      } else if (param.key === 'members') {
+        generated[param.key] = `user-1,user-2`;
       }
     });
 
@@ -301,6 +314,18 @@ export default function SDKTestingPanel({ onExecute, token }: SDKTestingPanelPro
         } catch (e) {
           // Already handled by validateJSON
         }
+      }
+    }
+    
+    if (key === 'chatName' && value) {
+      if (value.trim().length === 0) {
+        errors[key] = 'Chat name is required';
+      }
+    }
+    
+    if (key === 'members' && value) {
+      if (value.trim().length === 0) {
+        errors[key] = 'Members are required';
       }
     }
 
@@ -390,6 +415,11 @@ export default function SDKTestingPanel({ onExecute, token }: SDKTestingPanelPro
         };
       } else if (selectedMethod === 'deleteChatRoom') {
         params = { workspaceId: formData.workspaceId };
+      } else if (selectedMethod === 'deleteUsersAccess') {
+        params.chatName = formData.chatName;
+        params.members = formData.members
+          ? formData.members.split(',').map((m: string) => m.trim())
+          : [];
       }
 
       // Generate headers info (x-custom-token is automatically added by SDK backend)
@@ -399,7 +429,7 @@ export default function SDKTestingPanel({ onExecute, token }: SDKTestingPanelPro
       
       // Add placeholder for x-custom-token for server-to-server methods
       // The actual token will be updated after the request completes
-      if (['updateUsers', 'createUser', 'getUsers', 'deleteUsers', 'createChatRoom', 
+      if (['updateUsers', 'createUser', 'getUsers', 'deleteUsers', 'createChatRoom', 'deleteUsersAccess',
            'deleteChatRoom', 'grantUserAccessToChatRoom', 'grantChatbotAccessToChatRoom'].includes(selectedMethod)) {
         headers['x-custom-token'] = 'Generating...';
       }
@@ -564,6 +594,11 @@ export default function SDKTestingPanel({ onExecute, token }: SDKTestingPanelPro
             };
           } else if (selectedMethod === 'deleteChatRoom') {
             errorParams = { workspaceId: formData.workspaceId };
+          } else if (selectedMethod === 'deleteUsersAccess') {
+            errorParams = {
+              chatName: formData.chatName,
+              members: formData.members ? formData.members.split(',').map((m: string) => m.trim()) : [],
+            };
           }
         } catch {
           // If reconstruction fails, use empty object
@@ -599,6 +634,11 @@ export default function SDKTestingPanel({ onExecute, token }: SDKTestingPanelPro
         setFormData({ users: JSON.stringify(item.params.users, null, 2) });
       } else if (item.method === 'deleteUsers' && item.params.userIds) {
         setFormData({ userIds: item.params.userIds.join(',') });
+      } else if (item.method === 'deleteUsersAccess' && item.params.members) {
+        setFormData({ 
+          chatName: item.params.chatName,
+          members: item.params.members.join(',') 
+        });
       } else {
         setFormData(item.params);
       }
@@ -676,6 +716,11 @@ export default function SDKTestingPanel({ onExecute, token }: SDKTestingPanelPro
         };
       } else if (selectedMethod === 'deleteChatRoom') {
         params = { workspaceId: formData.workspaceId };
+      } else if (selectedMethod === 'deleteUsersAccess') {
+        params.chatName = formData.chatName;
+        params.members = formData.members
+          ? formData.members.split(',').map((m: string) => m.trim())
+          : [];
       } else {
         params = formData;
       }

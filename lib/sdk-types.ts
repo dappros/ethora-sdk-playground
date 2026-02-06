@@ -82,6 +82,11 @@ export interface UpdateUsersParams {
   users: UpdateUserData[];
 }
 
+export interface DeleteUsersAccessParams {
+  chatName: string;
+  members: string[];
+}
+
 // SDK Method Result Types
 export type CreateChatRoomResult = any;
 export type CreateUserResult = any;
@@ -93,6 +98,7 @@ export type DeleteChatRoomResult = any;
 export type DeleteUsersResult = any;
 export type GetUsersResult = any[];
 export type UpdateUsersResult = any;
+export type DeleteUsersAccessResult = any;
 
 // Union type for all SDK method names
 export type SDKMethodName =
@@ -105,7 +111,8 @@ export type SDKMethodName =
   | 'deleteChatRoom'
   | 'deleteUsers'
   | 'getUsers'
-  | 'updateUsers';
+  | 'updateUsers'
+  | 'deleteUsersAccess';
 
 // Union type for all SDK method parameters
 export type SDKMethodParams =
@@ -118,7 +125,8 @@ export type SDKMethodParams =
   | DeleteChatRoomParams
   | DeleteUsersParams
   | GetUsersParams
-  | UpdateUsersParams;
+  | UpdateUsersParams
+  | DeleteUsersAccessParams;
 
 // Type guard functions
 export function isCreateChatRoomParams(params: any): params is CreateChatRoomParams {
@@ -171,6 +179,16 @@ export function isGetUsersParams(params: any): params is GetUsersParams {
 
 export function isUpdateUsersParams(params: any): params is UpdateUsersParams {
   return params && Array.isArray(params.users) && params.users.length > 0;
+}
+
+export function isDeleteUsersAccessParams(params: any): params is DeleteUsersAccessParams {
+  return (
+    params &&
+    typeof params.chatName === 'string' &&
+    params.chatName.length > 0 &&
+    Array.isArray(params.members) &&
+    params.members.every((m: any) => typeof m === 'string')
+  );
 }
 
 // Error types with suggestions
