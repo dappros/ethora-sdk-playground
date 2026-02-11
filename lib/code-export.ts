@@ -151,6 +151,8 @@ export function generateSDKCode(request: RequestData): string {
       `const chatName = sdk.createChatName('${p.chatId}', ${p.full !== false ? 'true' : 'false'});`,
     deleteChatRoom: (p) => `await sdk.deleteChatRoom('${p.chatId}');`,
     deleteUsers: (p) => `await sdk.deleteUsers(${JSON.stringify(p.userIds)});`,
+    removeUserAccessFromChatRoom: (p) =>
+      `await sdk.removeUserAccessFromChatRoom('${p.chatId}', ${JSON.stringify(p.userId)});`,
     getUsers: (p) => {
       const filter: any = {};
       if (p.chatName) filter.chatName = p.chatName;
@@ -365,7 +367,7 @@ ${requestCode}`;
 /**
  * Get all available export formats
  */
-export type ExportFormat = 'curl' | 'fetch' | 'axios' | 'sdk' | 'complete' | 'direct';
+export type ExportFormat = 'curl' | 'axios' | 'sdk';
 
 export function exportRequest(
   request: RequestData,
@@ -377,17 +379,11 @@ export function exportRequest(
   switch (format) {
     case 'curl':
       return generateCurlCommand(requestWithToken, baseUrl);
-    case 'fetch':
-      return generateFetchCode(requestWithToken, baseUrl);
     case 'axios':
       return generateAxiosCode(requestWithToken, baseUrl);
     case 'sdk':
       return generateSDKCode(requestWithToken);
-    case 'complete':
-      return generateCompleteCodeExample(requestWithToken);
-    case 'direct':
-      return generateDirectAPICode(requestWithToken);
     default:
-      return generateFetchCode(requestWithToken, baseUrl);
+      return generateSDKCode(requestWithToken);
   }
 }

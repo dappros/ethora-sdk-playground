@@ -124,12 +124,12 @@ const SDK_METHODS = [
     ],
   },
   {
-    id: 'deleteUsersAccess',
-    name: 'Delete Users Access',
-    description: 'Delete user access from a chat',
+    id: 'removeUserAccessFromChatRoom',
+    name: 'Remove User Access',
+    description: 'Remove a user from a chat room',
     params: [
-      { key: 'chatName', label: 'Chat Name', type: 'text', required: true },
-      { key: 'members', label: 'Members (comma-separated)', type: 'text', required: true },
+      { key: 'chatId', label: 'chat ID', type: 'text', required: true },
+      { key: 'userId', label: 'User ID (comma-separated for multiple)', type: 'text', required: true },
     ],
   },
 ];
@@ -146,7 +146,7 @@ export default function SDKTestingPanel({ onExecute, token }: SDKTestingPanelPro
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [showHistory, setShowHistory] = useState(false);
   const [showCodeExport, setShowCodeExport] = useState(false);
-  const [exportFormat, setExportFormat] = useState<ExportFormat>('fetch');
+  const [exportFormat, setExportFormat] = useState<ExportFormat>('sdk');
 
   const currentMethod = SDK_METHODS.find((m) => m.id === selectedMethod);
 
@@ -415,11 +415,12 @@ export default function SDKTestingPanel({ onExecute, token }: SDKTestingPanelPro
         };
       } else if (selectedMethod === 'deleteChatRoom') {
         params = { chatId: formData.chatId };
-      } else if (selectedMethod === 'deleteUsersAccess') {
-        params.chatName = formData.chatName;
-        params.members = formData.members
-          ? formData.members.split(',').map((m: string) => m.trim())
+      } else if (selectedMethod === 'removeUserAccessFromChatRoom') {
+        const members = formData.userId
+          ? formData.userId.split(',').map((m: string) => m.trim()).filter(Boolean)
           : [];
+        params.chatId = formData.chatId;
+        params.userId = members.length > 1 ? members : members[0];
       }
 
       // Generate headers info (x-custom-token is automatically added by SDK backend)
@@ -429,7 +430,7 @@ export default function SDKTestingPanel({ onExecute, token }: SDKTestingPanelPro
       
       // Add placeholder for x-custom-token for server-to-server methods
       // The actual token will be updated after the request completes
-      if (['updateUsers', 'createUser', 'getUsers', 'deleteUsers', 'createChatRoom', 'deleteUsersAccess',
+      if (['updateUsers', 'createUser', 'getUsers', 'deleteUsers', 'createChatRoom', 'removeUserAccessFromChatRoom',
            'deleteChatRoom', 'grantUserAccessToChatRoom', 'grantChatbotAccessToChatRoom'].includes(selectedMethod)) {
         headers['x-custom-token'] = 'Generating...';
       }
@@ -594,10 +595,13 @@ export default function SDKTestingPanel({ onExecute, token }: SDKTestingPanelPro
             };
           } else if (selectedMethod === 'deleteChatRoom') {
             errorParams = { chatId: formData.chatId };
-          } else if (selectedMethod === 'deleteUsersAccess') {
+          } else if (selectedMethod === 'removeUserAccessFromChatRoom') {
+            const members = formData.userId
+              ? formData.userId.split(',').map((m: string) => m.trim()).filter(Boolean)
+              : [];
             errorParams = {
-              chatName: formData.chatName,
-              members: formData.members ? formData.members.split(',').map((m: string) => m.trim()) : [],
+              chatId: formData.chatId,
+              userId: members.length > 1 ? members : members[0],
             };
           }
         } catch {
@@ -634,10 +638,13 @@ export default function SDKTestingPanel({ onExecute, token }: SDKTestingPanelPro
         setFormData({ users: JSON.stringify(item.params.users, null, 2) });
       } else if (item.method === 'deleteUsers' && item.params.userIds) {
         setFormData({ userIds: item.params.userIds.join(',') });
-      } else if (item.method === 'deleteUsersAccess' && item.params.members) {
-        setFormData({ 
-          chatName: item.params.chatName,
-          members: item.params.members.join(',') 
+      } else if (item.method === 'removeUserAccessFromChatRoom' && item.params.userId) {
+        const userId = Array.isArray(item.params.userId)
+          ? item.params.userId.join(',')
+          : item.params.userId;
+        setFormData({
+          chatId: item.params.chatId,
+          userId,
         });
       } else {
         setFormData(item.params);
@@ -716,15 +723,17 @@ export default function SDKTestingPanel({ onExecute, token }: SDKTestingPanelPro
         };
       } else if (selectedMethod === 'deleteChatRoom') {
         params = { chatId: formData.chatId };
-      } else if (selectedMethod === 'deleteUsersAccess') {
-        params.chatName = formData.chatName;
-        params.members = formData.members
-          ? formData.members.split(',').map((m: string) => m.trim())
+      } else if (selectedMethod === 'removeUserAccessFromChatRoom') {
+        const members = formData.userId
+          ? formData.userId.split(',').map((m: string) => m.trim()).filter(Boolean)
           : [];
+        params.chatId = formData.chatId;
+        params.userId = members.length > 1 ? members : members[0];
       } else {
         params = formData;
       }
 
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : undefined;
       const code = exportRequest(
         {
           method: selectedMethod,
@@ -732,7 +741,7 @@ export default function SDKTestingPanel({ onExecute, token }: SDKTestingPanelPro
           files: files.length > 0 ? files : undefined,
         },
         exportFormat,
-        undefined,
+        baseUrl,
         token
       );
 
@@ -797,12 +806,9 @@ export default function SDKTestingPanel({ onExecute, token }: SDKTestingPanelPro
               onChange={(e) => setExportFormat(e.target.value as ExportFormat)}
               className="px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300"
             >
-              <option value="fetch">Fetch</option>
-              <option value="axios">Axios</option>
+              <option value="sdk">SDK</option>
+              <option value="axios">HTTP (Axios)</option>
               <option value="curl">cURL</option>
-              <option value="sdk">SDK Direct</option>
-              <option value="complete">Complete Example</option>
-              <option value="direct">Direct API (x-custom-token)</option>
             </select>
             <button
               onClick={handleExportCode}
@@ -1072,4 +1078,3 @@ export default function SDKTestingPanel({ onExecute, token }: SDKTestingPanelPro
     </div>
   );
 }
-

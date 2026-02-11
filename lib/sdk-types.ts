@@ -87,6 +87,11 @@ export interface DeleteUsersAccessParams {
   members: string[];
 }
 
+export interface RemoveUserAccessFromChatRoomParams {
+  chatId: string;
+  userId: string | string[];
+}
+
 // SDK Method Result Types
 export type CreateChatRoomResult = any;
 export type CreateUserResult = any;
@@ -112,6 +117,7 @@ export type SDKMethodName =
   | 'deleteUsers'
   | 'getUsers'
   | 'updateUsers'
+  | 'removeUserAccessFromChatRoom'
   | 'deleteUsersAccess';
 
 // Union type for all SDK method parameters
@@ -126,6 +132,7 @@ export type SDKMethodParams =
   | DeleteUsersParams
   | GetUsersParams
   | UpdateUsersParams
+  | RemoveUserAccessFromChatRoomParams
   | DeleteUsersAccessParams;
 
 // Type guard functions
@@ -188,6 +195,19 @@ export function isDeleteUsersAccessParams(params: any): params is DeleteUsersAcc
     params.chatName.length > 0 &&
     Array.isArray(params.members) &&
     params.members.every((m: any) => typeof m === 'string')
+  );
+}
+
+export function isRemoveUserAccessFromChatRoomParams(
+  params: any
+): params is RemoveUserAccessFromChatRoomParams {
+  return (
+    params &&
+    typeof params.chatId === 'string' &&
+    params.chatId.length > 0 &&
+    (typeof params.userId === 'string' ||
+      (Array.isArray(params.userId) &&
+        params.userId.every((id: any) => typeof id === 'string')))
   );
 }
 

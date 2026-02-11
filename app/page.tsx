@@ -5,10 +5,11 @@ import dynamic from 'next/dynamic';
 import SettingsPanel from '@/components/SettingsPanel';
 import CodeBlock from '@/components/CodeBlock';
 import SDKTestingPanel from '@/components/SDKTestingPanel';
+import AutoTestPanel from '@/components/AutoTestPanel';
 import { defaultSettings, type PlaygroundSettings } from '@/lib/chat-config';
 import { generateCodeSnippet } from '@/lib/code-generator';
 
-type Tab = 'chat' | 'sdk';
+type Tab = 'chat' | 'sdk' | 'auto';
 
 const ChatPreview = dynamic(() => import('@/components/ChatPreview'), {
   ssr: false,
@@ -21,11 +22,40 @@ export default function Home() {
   const [setupError, setSetupError] = useState<string | null>(null);
   const [showCodeBlock, setShowCodeBlock] = useState(false);
   const [roomJID, setRoomJID] = useState<string | undefined>();
+  const [envLoaded, setEnvLoaded] = useState(false);
 
   // Update settings when they change
   const handleSettingsChange = (updates: Partial<PlaygroundSettings>) => {
     setSettings((prev) => ({ ...prev, ...updates }));
   };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadEnvConfig() {
+      try {
+        const response = await fetch('/api/config');
+        if (!response.ok) return;
+        const data = await response.json();
+        if (cancelled) return;
+        if (data?.settings) {
+          setSettings((prev) => ({ ...prev, ...data.settings }));
+        }
+      } catch {
+        // Ignore config load errors
+      } finally {
+        if (!cancelled) {
+          setEnvLoaded(true);
+        }
+      }
+    }
+
+    loadEnvConfig();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Handle setup button click
   const handleSetup = async () => {
@@ -202,6 +232,16 @@ export default function Home() {
           >
             SDK Testing
           </button>
+          <button
+            onClick={() => setActiveTab('auto')}
+            className={`px-6 py-3 text-sm font-medium transition-colors ${
+              activeTab === 'auto'
+                ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+            }`}
+          >
+            Auto Test
+          </button>
         </div>
       </div>
 
@@ -238,7 +278,7 @@ export default function Home() {
           {/* Chat Preview */}
           <main className="flex-1 overflow-hidden flex flex-col min-w-0">
             <div className="flex-1 overflow-hidden relative">
-              <ChatPreview settings={settings} />
+              <ChatPreview settings={settings} envLoaded={envLoaded} />
             </div>
 
             {/* Code Block */}
@@ -249,12 +289,15 @@ export default function Home() {
             )}
           </main>
         </div>
-      ) : (
+      ) : activeTab === 'sdk' ? (
         <div className="flex-1 overflow-hidden">
           <SDKTestingPanel onExecute={handleSDKExecute} token={settings.token} />
+        </div>
+      ) : (
+        <div className="flex-1 overflow-hidden">
+          <AutoTestPanel onExecute={handleSDKExecute} />
         </div>
       )}
     </div>
   );
 }
-

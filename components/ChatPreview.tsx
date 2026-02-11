@@ -7,9 +7,10 @@ import { settingsToChatConfig, requiresRemount, getRemountKey } from '@/lib/chat
 
 interface ChatPreviewProps {
   settings: PlaygroundSettings;
+  envLoaded?: boolean;
 }
 
-export default function ChatPreview({ settings }: ChatPreviewProps) {
+export default function ChatPreview({ settings, envLoaded = true }: ChatPreviewProps) {
   const [token, setToken] = useState<string | undefined>(settings.token);
   const [roomJID, setRoomJID] = useState<string | undefined>();
   const [loading, setLoading] = useState(true);
@@ -59,9 +60,10 @@ export default function ChatPreview({ settings }: ChatPreviewProps) {
       secondarySendButtonEnabled: settings.secondarySendButtonEnabled,
       translatesEnabled: settings.translatesEnabled,
       botMessageAutoScroll: settings.botMessageAutoScroll,
+      authToken: token,
     };
     return JSON.stringify(uiSettings);
-  }, [settings]);
+  }, [settings, token]);
 
   // Track settings changes and trigger remount when any config-affecting setting changes
   useEffect(() => {
@@ -135,12 +137,14 @@ export default function ChatPreview({ settings }: ChatPreviewProps) {
       }
     }
 
-    setupChat();
+    if (envLoaded) {
+      setupChat();
+    }
 
     return () => {
       cancelled = true;
     };
-  }, [settings.userId, settings.roomId]);
+  }, [settings.userId, settings.roomId, envLoaded]);
 
   // Update token when settings.token changes
   useEffect(() => {
@@ -235,4 +239,3 @@ export default function ChatPreview({ settings }: ChatPreviewProps) {
     </div>
   );
 }
-

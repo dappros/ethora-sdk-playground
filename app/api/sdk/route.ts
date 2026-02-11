@@ -34,6 +34,7 @@ import {
   isGetUsersParams,
   isUpdateUsersParams,
   isDeleteUsersAccessParams,
+  isRemoveUserAccessFromChatRoomParams,
   createSDKError,
   ERROR_SUGGESTIONS,
 } from "@/lib/sdk-types";
@@ -443,6 +444,22 @@ export async function POST(request: NextRequest) {
           );
         }
         result = await (sdk as any).deleteUsersAccess(params.chatName, params.members);
+        break;
+      }
+
+      case "removeUserAccessFromChatRoom": {
+        if (!isRemoveUserAccessFromChatRoomParams(params)) {
+          const error = createSDKError(
+            "Invalid parameters for removeUserAccessFromChatRoom: chatId and userId are required",
+            "INVALID_PARAMS",
+            [...ERROR_SUGGESTIONS.MISSING_chat_ID, ...ERROR_SUGGESTIONS.MISSING_USER_ID]
+          );
+          return NextResponse.json(
+            { error: error.message, suggestions: error.suggestions, code: error.code },
+            { status: 400 }
+          );
+        }
+        result = await (sdk as any).removeUserAccessFromChatRoom(params.chatId, params.userId);
         break;
       }
 
