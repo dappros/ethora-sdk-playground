@@ -172,7 +172,7 @@ export default function SettingsPanel({
           />
         </div>
         <div>
-          <Label htmlFor="roomId">Room ID / Workspace ID</Label>
+          <Label htmlFor="roomId">Room ID / chat ID</Label>
           <Input
             id="roomId"
             value={settings.roomId}

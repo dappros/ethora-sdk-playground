@@ -8,17 +8,17 @@ import { getSDKInstance } from '@/lib/sdk';
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const workspaceId = searchParams.get('workspaceId');
+    const chatId = searchParams.get('chatId');
 
-    if (!workspaceId) {
+    if (!chatId) {
       return NextResponse.json(
-        { error: 'workspaceId query parameter is required' },
+        { error: 'chatId query parameter is required' },
         { status: 400 }
       );
     }
 
     const sdk = getSDKInstance();
-    const roomJID = sdk.createChatName(workspaceId, true);
+    const roomJID = sdk.createChatName(chatId, true);
 
     return NextResponse.json({ roomJID });
   } catch (error) {
@@ -38,23 +38,23 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { workspaceId, title, type } = body;
+    const { chatId, title, type } = body;
 
-    if (!workspaceId || typeof workspaceId !== 'string') {
+    if (!chatId || typeof chatId !== 'string') {
       return NextResponse.json(
-        { error: 'workspaceId is required and must be a string' },
+        { error: 'chatId is required and must be a string' },
         { status: 400 }
       );
     }
 
     const sdk = getSDKInstance();
-    const result = await sdk.createChatRoom(workspaceId, {
-      title: title || `Chat Room ${workspaceId}`,
-      uuid: workspaceId,
+    const result = await sdk.createChatRoom(chatId, {
+      title: title || `Chat Room ${chatId}`,
+      uuid: chatId,
       type: type || 'group',
     });
 
-    const roomJID = sdk.createChatName(workspaceId, true);
+    const roomJID = sdk.createChatName(chatId, true);
 
     return NextResponse.json({
       success: true,

@@ -138,18 +138,18 @@ export function generateSDKCode(request: RequestData): string {
 
   // Map method names to SDK calls
   const methodMap: Record<string, (params: any) => string> = {
-    createChatRoom: (p) => `await sdk.createChatRoom('${p.workspaceId}', ${JSON.stringify(p.roomData, null, 2)});`,
+    createChatRoom: (p) => `await sdk.createChatRoom('${p.chatId}', ${JSON.stringify(p.roomData, null, 2)});`,
     createUser: (p) => {
       const userDataStr = JSON.stringify(p.userData, null, 2);
       return `await sdk.createUser('${p.userId}', ${userDataStr});`;
     },
     grantUserAccessToChatRoom: (p) =>
-      `await sdk.grantUserAccessToChatRoom('${p.workspaceId}', '${p.userId}');`,
-    grantChatbotAccessToChatRoom: (p) => `await sdk.grantChatbotAccessToChatRoom('${p.workspaceId}');`,
+      `await sdk.grantUserAccessToChatRoom('${p.chatId}', '${p.userId}');`,
+    grantChatbotAccessToChatRoom: (p) => `await sdk.grantChatbotAccessToChatRoom('${p.chatId}');`,
     createChatUserJwtToken: (p) => `const token = sdk.createChatUserJwtToken('${p.userId}');`,
     createChatName: (p) =>
-      `const chatName = sdk.createChatName('${p.workspaceId}', ${p.full !== false ? 'true' : 'false'});`,
-    deleteChatRoom: (p) => `await sdk.deleteChatRoom('${p.workspaceId}');`,
+      `const chatName = sdk.createChatName('${p.chatId}', ${p.full !== false ? 'true' : 'false'});`,
+    deleteChatRoom: (p) => `await sdk.deleteChatRoom('${p.chatId}');`,
     deleteUsers: (p) => `await sdk.deleteUsers(${JSON.stringify(p.userIds)});`,
     getUsers: (p) => {
       const filter: any = {};

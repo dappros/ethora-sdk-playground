@@ -36,7 +36,7 @@ export interface GetUsersFilter {
 
 // SDK Method Parameter Types
 export interface CreateChatRoomParams {
-  workspaceId: string;
+  chatId: string;
   roomData: RoomData;
 }
 
@@ -46,12 +46,12 @@ export interface CreateUserParams {
 }
 
 export interface GrantUserAccessParams {
-  workspaceId: string;
+  chatId: string;
   userId: string;
 }
 
 export interface GrantChatbotAccessParams {
-  workspaceId: string;
+  chatId: string;
 }
 
 export interface CreateChatUserJwtTokenParams {
@@ -59,12 +59,12 @@ export interface CreateChatUserJwtTokenParams {
 }
 
 export interface CreateChatNameParams {
-  workspaceId: string;
+  chatId: string;
   full?: boolean;
 }
 
 export interface DeleteChatRoomParams {
-  workspaceId: string;
+  chatId: string;
 }
 
 export interface DeleteUsersParams {
@@ -133,8 +133,8 @@ export function isCreateChatRoomParams(params: any): params is CreateChatRoomPar
   return (
     params &&
     typeof params === 'object' &&
-    typeof params.workspaceId === 'string' &&
-    params.workspaceId.length > 0 &&
+    typeof params.chatId === 'string' &&
+    params.chatId.length > 0 &&
     params.roomData &&
     typeof params.roomData === 'object' &&
     typeof params.roomData.uuid === 'string'
@@ -146,11 +146,11 @@ export function isCreateUserParams(params: any): params is CreateUserParams {
 }
 
 export function isGrantUserAccessParams(params: any): params is GrantUserAccessParams {
-  return params && typeof params.workspaceId === 'string' && typeof params.userId === 'string';
+  return params && typeof params.chatId === 'string' && typeof params.userId === 'string';
 }
 
 export function isGrantChatbotAccessParams(params: any): params is GrantChatbotAccessParams {
-  return params && typeof params.workspaceId === 'string';
+  return params && typeof params.chatId === 'string';
 }
 
 export function isCreateChatUserJwtTokenParams(params: any): params is CreateChatUserJwtTokenParams {
@@ -158,11 +158,11 @@ export function isCreateChatUserJwtTokenParams(params: any): params is CreateCha
 }
 
 export function isCreateChatNameParams(params: any): params is CreateChatNameParams {
-  return params && typeof params.workspaceId === 'string';
+  return params && typeof params.chatId === 'string';
 }
 
 export function isDeleteChatRoomParams(params: any): params is DeleteChatRoomParams {
-  return params && typeof params.workspaceId === 'string';
+  return params && typeof params.chatId === 'string';
 }
 
 export function isDeleteUsersParams(params: any): params is DeleteUsersParams {
@@ -210,9 +210,9 @@ export function createSDKError(
 
 // Common error suggestions
 export const ERROR_SUGGESTIONS = {
-  MISSING_WORKSPACE_ID: [
-    'Ensure workspaceId is provided and is a non-empty string',
-    'Check that the workspaceId matches your workspace identifier',
+  MISSING_chat_ID: [
+    'Ensure chatId is provided and is a non-empty string',
+    'Check that the chatId matches your chat identifier',
   ],
   MISSING_USER_ID: [
     'Ensure userId is provided and is a non-empty string',

@@ -8,7 +8,7 @@ import { getSDKInstance } from '@/lib/sdk';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}));
-    const { userId, workspaceId, userData } = body;
+    const { userId, chatId, userData } = body;
 
     if (!userId || typeof userId !== 'string') {
       return NextResponse.json(
@@ -17,9 +17,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!workspaceId || typeof workspaceId !== 'string') {
+    if (!chatId || typeof chatId !== 'string') {
       return NextResponse.json(
-        { error: 'workspaceId is required and must be a string' },
+        { error: 'chatId is required and must be a string' },
         { status: 400 }
       );
     }
@@ -42,9 +42,9 @@ export async function POST(request: NextRequest) {
 
     // Create chat room (idempotent - safe to call multiple times)
     try {
-      await sdk.createChatRoom(workspaceId, {
-        title: `Chat Room ${workspaceId}`,
-        uuid: workspaceId,
+      await sdk.createChatRoom(chatId, {
+        title: `Chat Room ${chatId}`,
+        uuid: chatId,
         type: 'group',
       });
     } catch (roomError) {
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
 
     // Grant user access (idempotent)
     try {
-      await sdk.grantUserAccessToChatRoom(workspaceId, userId);
+      await sdk.grantUserAccessToChatRoom(chatId, userId);
     } catch (accessError) {
       // Access might already be granted, continue
       console.warn('Access grant warning (may already have access):', accessError);
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
     const token = sdk.createChatUserJwtToken(userId);
 
     // Get room JID
-    const roomJID = sdk.createChatName(workspaceId, true);
+    const roomJID = sdk.createChatName(chatId, true);
 
     return NextResponse.json({
       success: true,

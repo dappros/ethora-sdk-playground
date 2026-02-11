@@ -84,10 +84,10 @@ export async function POST(request: NextRequest) {
       case "createChatRoom": {
         if (!isCreateChatRoomParams(params)) {
           const error = createSDKError(
-            "Invalid parameters for createChatRoom: workspaceId and roomData are required",
+            "Invalid parameters for createChatRoom: chatId and roomData are required",
             "INVALID_PARAMS",
-            ERROR_SUGGESTIONS.MISSING_WORKSPACE_ID,
-            "workspaceId"
+            ERROR_SUGGESTIONS.MISSING_chat_ID,
+            "chatId"
           );
           return NextResponse.json(
             { error: error.message, suggestions: error.suggestions, code: error.code, field: error.field },
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
           );
         }
         result = await sdk.createChatRoom(
-          params.workspaceId,
+          params.chatId,
           (params.roomData || {}) as Record<string, unknown>
         );
         break;
@@ -181,9 +181,9 @@ export async function POST(request: NextRequest) {
       case "grantUserAccessToChatRoom": {
         if (!isGrantUserAccessParams(params)) {
           const error = createSDKError(
-            "Invalid parameters for grantUserAccessToChatRoom: workspaceId and userId are required",
+            "Invalid parameters for grantUserAccessToChatRoom: chatId and userId are required",
             "INVALID_PARAMS",
-            [...ERROR_SUGGESTIONS.MISSING_WORKSPACE_ID, ...ERROR_SUGGESTIONS.MISSING_USER_ID]
+            [...ERROR_SUGGESTIONS.MISSING_chat_ID, ...ERROR_SUGGESTIONS.MISSING_USER_ID]
           );
           return NextResponse.json(
             { error: error.message, suggestions: error.suggestions, code: error.code },
@@ -191,7 +191,7 @@ export async function POST(request: NextRequest) {
           );
         }
         result = await sdk.grantUserAccessToChatRoom(
-          params.workspaceId,
+          params.chatId,
           params.userId
         );
         break;
@@ -200,17 +200,17 @@ export async function POST(request: NextRequest) {
       case "grantChatbotAccessToChatRoom": {
         if (!isGrantChatbotAccessParams(params)) {
           const error = createSDKError(
-            "Invalid parameters for grantChatbotAccessToChatRoom: workspaceId is required",
+            "Invalid parameters for grantChatbotAccessToChatRoom: chatId is required",
             "INVALID_PARAMS",
-            ERROR_SUGGESTIONS.MISSING_WORKSPACE_ID,
-            "workspaceId"
+            ERROR_SUGGESTIONS.MISSING_chat_ID,
+            "chatId"
           );
           return NextResponse.json(
             { error: error.message, suggestions: error.suggestions, code: error.code, field: error.field },
             { status: 400 }
           );
         }
-        result = await sdk.grantChatbotAccessToChatRoom(params.workspaceId);
+        result = await sdk.grantChatbotAccessToChatRoom(params.chatId);
         break;
       }
 
@@ -234,10 +234,10 @@ export async function POST(request: NextRequest) {
       case "createChatName": {
         if (!isCreateChatNameParams(params)) {
           const error = createSDKError(
-            "Invalid parameters for createChatName: workspaceId is required",
+            "Invalid parameters for createChatName: chatId is required",
             "INVALID_PARAMS",
-            ERROR_SUGGESTIONS.MISSING_WORKSPACE_ID,
-            "workspaceId"
+            ERROR_SUGGESTIONS.MISSING_chat_ID,
+            "chatId"
           );
           return NextResponse.json(
             { error: error.message, suggestions: error.suggestions, code: error.code, field: error.field },
@@ -246,7 +246,7 @@ export async function POST(request: NextRequest) {
         }
         result = {
           chatName: sdk.createChatName(
-            params.workspaceId,
+            params.chatId,
             params.full !== false
           ),
         };
@@ -256,17 +256,17 @@ export async function POST(request: NextRequest) {
       case "deleteChatRoom": {
         if (!isDeleteChatRoomParams(params)) {
           const error = createSDKError(
-            "Invalid parameters for deleteChatRoom: workspaceId is required",
+            "Invalid parameters for deleteChatRoom: chatId is required",
             "INVALID_PARAMS",
-            ERROR_SUGGESTIONS.MISSING_WORKSPACE_ID,
-            "workspaceId"
+            ERROR_SUGGESTIONS.MISSING_chat_ID,
+            "chatId"
           );
           return NextResponse.json(
             { error: error.message, suggestions: error.suggestions, code: error.code, field: error.field },
             { status: 400 }
           );
         }
-        result = await sdk.deleteChatRoom(params.workspaceId);
+        result = await sdk.deleteChatRoom(params.chatId);
         break;
       }
 

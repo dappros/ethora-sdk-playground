@@ -31,9 +31,9 @@ const SDK_METHODS = [
   {
     id: 'createChatRoom',
     name: 'Create Chat Room',
-    description: 'Create a chat room for a workspace',
+    description: 'Create a chat room for a chat',
     params: [
-      { key: 'workspaceId', label: 'Workspace ID', type: 'text', required: true },
+      { key: 'chatId', label: 'chat ID', type: 'text', required: true },
       { key: 'title', label: 'Title', type: 'text', required: false },
       { key: 'type', label: 'Type', type: 'text', required: false, defaultValue: 'group' },
     ],
@@ -59,7 +59,7 @@ const SDK_METHODS = [
     name: 'Grant User Access',
     description: 'Grant a user access to a chat room',
     params: [
-      { key: 'workspaceId', label: 'Workspace ID', type: 'text', required: true },
+      { key: 'chatId', label: 'chat ID', type: 'text', required: true },
       { key: 'userId', label: 'User ID', type: 'text', required: true },
     ],
   },
@@ -68,7 +68,7 @@ const SDK_METHODS = [
     name: 'Grant Chatbot Access',
     description: 'Grant chatbot access to a chat room',
     params: [
-      { key: 'workspaceId', label: 'Workspace ID', type: 'text', required: true },
+      { key: 'chatId', label: 'chat ID', type: 'text', required: true },
     ],
   },
   {
@@ -82,18 +82,18 @@ const SDK_METHODS = [
   {
     id: 'createChatName',
     name: 'Create Chat Name',
-    description: 'Generate a chat room JID from workspace ID',
+    description: 'Generate a chat room JID from chat ID',
     params: [
-      { key: 'workspaceId', label: 'Workspace ID', type: 'text', required: true },
+      { key: 'chatId', label: 'chat ID', type: 'text', required: true },
       { key: 'full', label: 'Full JID', type: 'checkbox', required: false, defaultValue: true },
     ],
   },
   {
     id: 'deleteChatRoom',
     name: 'Delete Chat Room',
-    description: 'Delete a chat room by workspace ID',
+    description: 'Delete a chat room by chat ID',
     params: [
-      { key: 'workspaceId', label: 'Workspace ID', type: 'text', required: true },
+      { key: 'chatId', label: 'chat ID', type: 'text', required: true },
     ],
   },
   {
@@ -196,8 +196,8 @@ export default function SDKTestingPanel({ onExecute, token }: SDKTestingPanelPro
     currentMethod.params.forEach((param) => {
       if (param.defaultValue !== undefined) {
         generated[param.key] = param.defaultValue;
-      } else if (param.key === 'workspaceId') {
-        generated[param.key] = `workspace-${timestamp}-${randomId}`;
+      } else if (param.key === 'chatId') {
+        generated[param.key] = `chat-${timestamp}-${randomId}`;
       } else if (param.key === 'userId') {
         generated[param.key] = `user-${timestamp}-${randomId}`;
       } else if (param.key === 'title') {
@@ -279,9 +279,9 @@ export default function SDKTestingPanel({ onExecute, token }: SDKTestingPanelPro
       }
     }
     
-    if (key === 'workspaceId' && value) {
+    if (key === 'chatId' && value) {
       if (value.trim().length === 0) {
-        errors[key] = 'Workspace ID is required';
+        errors[key] = 'chat ID is required';
       }
     }
     
@@ -376,16 +376,16 @@ export default function SDKTestingPanel({ onExecute, token }: SDKTestingPanelPro
         console.log('getUsers params before send:', JSON.stringify(params, null, 2));
       } else if (selectedMethod === 'createChatName') {
         params = {
-          workspaceId: formData.workspaceId,
+          chatId: formData.chatId,
           full: formData.full !== undefined ? formData.full : true,
         };
       } else if (selectedMethod === 'createChatUserJwtToken') {
         params = { userId: formData.userId };
       } else if (selectedMethod === 'grantChatbotAccessToChatRoom') {
-        params = { workspaceId: formData.workspaceId };
+        params = { chatId: formData.chatId };
       } else if (selectedMethod === 'grantUserAccessToChatRoom') {
         params = {
-          workspaceId: formData.workspaceId,
+          chatId: formData.chatId,
           userId: formData.userId,
         };
       } else if (selectedMethod === 'createUser') {
@@ -406,15 +406,15 @@ export default function SDKTestingPanel({ onExecute, token }: SDKTestingPanelPro
         };
       } else if (selectedMethod === 'createChatRoom') {
         params = {
-          workspaceId: formData.workspaceId,
+          chatId: formData.chatId,
           roomData: {
             ...(formData.title && { title: formData.title }),
-            uuid: formData.workspaceId,
+            uuid: formData.chatId,
             type: formData.type || 'group',
           },
         };
       } else if (selectedMethod === 'deleteChatRoom') {
-        params = { workspaceId: formData.workspaceId };
+        params = { chatId: formData.chatId };
       } else if (selectedMethod === 'deleteUsersAccess') {
         params.chatName = formData.chatName;
         params.members = formData.members
@@ -555,16 +555,16 @@ export default function SDKTestingPanel({ onExecute, token }: SDKTestingPanelPro
             if (formData.xmppUsername) errorParams.xmppUsername = formData.xmppUsername;
           } else if (selectedMethod === 'createChatName') {
             errorParams = {
-              workspaceId: formData.workspaceId,
+              chatId: formData.chatId,
               full: formData.full !== undefined ? formData.full : true,
             };
           } else if (selectedMethod === 'createChatUserJwtToken') {
             errorParams = { userId: formData.userId };
           } else if (selectedMethod === 'grantChatbotAccessToChatRoom') {
-            errorParams = { workspaceId: formData.workspaceId };
+            errorParams = { chatId: formData.chatId };
           } else if (selectedMethod === 'grantUserAccessToChatRoom') {
             errorParams = {
-              workspaceId: formData.workspaceId,
+              chatId: formData.chatId,
               userId: formData.userId,
             };
           } else if (selectedMethod === 'createUser') {
@@ -585,15 +585,15 @@ export default function SDKTestingPanel({ onExecute, token }: SDKTestingPanelPro
             };
           } else if (selectedMethod === 'createChatRoom') {
             errorParams = {
-              workspaceId: formData.workspaceId,
+              chatId: formData.chatId,
               roomData: {
                 ...(formData.title && { title: formData.title }),
-                uuid: formData.workspaceId,
+                uuid: formData.chatId,
                 type: formData.type || 'group',
               },
             };
           } else if (selectedMethod === 'deleteChatRoom') {
-            errorParams = { workspaceId: formData.workspaceId };
+            errorParams = { chatId: formData.chatId };
           } else if (selectedMethod === 'deleteUsersAccess') {
             errorParams = {
               chatName: formData.chatName,
@@ -677,16 +677,16 @@ export default function SDKTestingPanel({ onExecute, token }: SDKTestingPanelPro
         }
       } else if (selectedMethod === 'createChatName') {
         params = {
-          workspaceId: formData.workspaceId,
+          chatId: formData.chatId,
           full: formData.full !== undefined ? formData.full : true,
         };
       } else if (selectedMethod === 'createChatUserJwtToken') {
         params = { userId: formData.userId };
       } else if (selectedMethod === 'grantChatbotAccessToChatRoom') {
-        params = { workspaceId: formData.workspaceId };
+        params = { chatId: formData.chatId };
       } else if (selectedMethod === 'grantUserAccessToChatRoom') {
         params = {
-          workspaceId: formData.workspaceId,
+          chatId: formData.chatId,
           userId: formData.userId,
         };
       } else if (selectedMethod === 'createUser') {
@@ -707,15 +707,15 @@ export default function SDKTestingPanel({ onExecute, token }: SDKTestingPanelPro
         };
       } else if (selectedMethod === 'createChatRoom') {
         params = {
-          workspaceId: formData.workspaceId,
+          chatId: formData.chatId,
           roomData: {
             ...(formData.title && { title: formData.title }),
-            uuid: formData.workspaceId,
+            uuid: formData.chatId,
             type: formData.type || 'group',
           },
         };
       } else if (selectedMethod === 'deleteChatRoom') {
-        params = { workspaceId: formData.workspaceId };
+        params = { chatId: formData.chatId };
       } else if (selectedMethod === 'deleteUsersAccess') {
         params.chatName = formData.chatName;
         params.members = formData.members

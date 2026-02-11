@@ -40,7 +40,7 @@ export default function Home() {
         },
         body: JSON.stringify({
           userId: settings.userId,
-          workspaceId: settings.roomId,
+          chatId: settings.roomId,
           userData: {
             firstName: 'Playground',
             lastName: 'User',

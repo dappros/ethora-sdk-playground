@@ -16,7 +16,7 @@ export enum SDKErrorCode {
   UNKNOWN_METHOD = 'UNKNOWN_METHOD',
   
   // Field-specific errors
-  MISSING_WORKSPACE_ID = 'MISSING_WORKSPACE_ID',
+  MISSING_chat_ID = 'MISSING_chat_ID',
   MISSING_USER_ID = 'MISSING_USER_ID',
   MISSING_USER_DATA = 'MISSING_USER_DATA',
   MISSING_ROOM_DATA = 'MISSING_ROOM_DATA',
@@ -132,13 +132,13 @@ export const ERROR_CODE_MAPPINGS: Record<SDKErrorCode, ErrorCodeMapping> = {
     ],
     httpStatus: 400,
   },
-  [SDKErrorCode.MISSING_WORKSPACE_ID]: {
-    code: SDKErrorCode.MISSING_WORKSPACE_ID,
-    message: 'workspaceId is required',
+  [SDKErrorCode.MISSING_chat_ID]: {
+    code: SDKErrorCode.MISSING_chat_ID,
+    message: 'chatId is required',
     suggestions: [
-      'Ensure workspaceId is provided and is a non-empty string',
-      'Check that the workspaceId matches your workspace identifier',
-      'Verify the workspaceId format is correct',
+      'Ensure chatId is provided and is a non-empty string',
+      'Check that the chatId matches your chat identifier',
+      'Verify the chatId format is correct',
     ],
     httpStatus: 400,
   },
@@ -186,9 +186,9 @@ export const ERROR_CODE_MAPPINGS: Record<SDKErrorCode, ErrorCodeMapping> = {
     code: SDKErrorCode.ROOM_NOT_FOUND,
     message: 'Chat room not found',
     suggestions: [
-      'Verify the workspaceId exists in the system',
+      'Verify the chatId exists in the system',
       'Check that the room was created successfully',
-      'Ensure you are using the correct workspaceId',
+      'Ensure you are using the correct chatId',
     ],
     httpStatus: 404,
   },
@@ -197,7 +197,7 @@ export const ERROR_CODE_MAPPINGS: Record<SDKErrorCode, ErrorCodeMapping> = {
     message: 'Chat room already exists',
     suggestions: [
       'The room may already exist - this is often safe to ignore',
-      'Use a different workspaceId if you need a new room',
+      'Use a different chatId if you need a new room',
       'Check if the room creation is idempotent',
     ],
     httpStatus: 409,
@@ -228,7 +228,7 @@ export const ERROR_CODE_MAPPINGS: Record<SDKErrorCode, ErrorCodeMapping> = {
     suggestions: [
       'Verify your SDK credentials are correct',
       'Check that you have permission to perform this operation',
-      'Ensure the workspaceId and userId are valid',
+      'Ensure the chatId and userId are valid',
     ],
     httpStatus: 403,
   },
