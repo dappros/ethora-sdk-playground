@@ -27,9 +27,20 @@ ETHORA_CHAT_API_URL=https://api.ethoradev.com
 ETHORA_CHAT_APP_ID=your_app_id
 ETHORA_CHAT_APP_SECRET=your_app_secret
 NEXT_PUBLIC_BACKEND_URL=http://localhost:3000
+ETHORA_CHAT_USER_ID=playground-user-1
+ETHORA_CHAT_ROOM_ID=playground-room-1
+ETHORA_CHAT_PRIMARY_COLOR=#ffffff
+ETHORA_CHAT_SECONDARY_COLOR=#141414
+ETHORA_CHAT_THEME=light
+ETHORA_CHAT_QR_URL=https://app.ethora.com/app/chat/?qrChatId=
+ETHORA_XMPP_DEV_SERVER=wss://xmpp.ethoradev.com:5443/ws
+ETHORA_XMPP_HOST=xmpp.ethoradev.com
+ETHORA_XMPP_CONFERENCE=conference.xmpp.ethoradev.com
+ETHORA_XMPP_PING_ON_SEND_ENABLED=true
 ```
 
 **Important**: Replace `your_app_id` and `your_app_secret` with your actual Ethora app credentials from [ethora.com](https://ethora.com).
+**Tip**: The Settings panel now pre-fills from `.env.local`. All keys above are optional (defaults apply if omitted). You can also use `NEXT_PUBLIC_` variants for client-visible settings.
 
 ### 3. Run the Development Server
 
@@ -110,4 +121,3 @@ This playground uses:
 ## License
 
 MIT
-
