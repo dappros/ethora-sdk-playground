@@ -16,13 +16,7 @@ interface AutoTestResult {
   status: AutoTestStatus;
   responseTime?: number;
   response?: any;
-  error?: {
-    message: string;
-    code?: string;
-    field?: string;
-    details?: string;
-    suggestions?: string[];
-  };
+  error?: string | any;
 }
 
 export default function AutoTestPanel({ onExecute }: AutoTestPanelProps) {
@@ -168,19 +162,22 @@ export default function AutoTestPanel({ onExecute }: AutoTestPanelProps) {
                   ...item,
                   status: 'success',
                   responseTime,
-                  response,
+                  response: response !== undefined ? response : null,
                 }
               : item
           )
         );
       } catch (err) {
         const responseTime = Date.now() - startTime;
-        const errorWithExtras = err as Error & {
-          suggestions?: string[];
-          code?: string;
-          field?: string;
-          details?: string;
-        };
+        let errorMessage = 'Unknown error';
+        
+        if (err instanceof Error) {
+          errorMessage = err.message;
+        } else if (typeof err === 'string') {
+          errorMessage = err;
+        } else if (err && typeof err === 'object') {
+          errorMessage = (err as any).error || (err as any).message || JSON.stringify(err);
+        }
 
         setResults((prev) =>
           prev.map((item) =>
@@ -189,13 +186,7 @@ export default function AutoTestPanel({ onExecute }: AutoTestPanelProps) {
                   ...item,
                   status: 'error',
                   responseTime,
-                  error: {
-                    message: errorWithExtras?.message || 'Unknown error',
-                    suggestions: errorWithExtras?.suggestions,
-                    code: errorWithExtras?.code,
-                    field: errorWithExtras?.field,
-                    details: errorWithExtras?.details,
-                  },
+                  error: errorMessage,
                 }
               : item
           )
@@ -276,9 +267,9 @@ export default function AutoTestPanel({ onExecute }: AutoTestPanelProps) {
                       Response
                     </div>
                     {result.status === 'error' ? (
-                      <pre className="text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded p-2 overflow-x-auto whitespace-pre-wrap break-words">
-                        {JSON.stringify(result.error, null, 2)}
-                      </pre>
+                      <div className="text-xs bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 rounded p-2 text-red-700 dark:text-red-400 font-mono">
+                        {typeof result.error === 'string' ? result.error : JSON.stringify(result.error, null, 2)}
+                      </div>
                     ) : (
                       <pre className="text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded p-2 overflow-x-auto whitespace-pre-wrap break-words">
                         {JSON.stringify(result.response, null, 2)}

@@ -7,6 +7,8 @@ export interface LogEntry {
   timestamp: number;
   type: 'request' | 'response' | 'error';
   method?: string;
+  url?: string;
+  status?: number;
   data: any;
   responseTime?: number;
   headers?: Record<string, string>;
@@ -158,6 +160,18 @@ export default function ResponseLogger({ logs, onClear }: ResponseLoggerProps) {
                     {log.method && (
                       <span className="text-xs font-mono bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded">
                         {log.method}
+                      </span>
+                    )}
+                    {log.url && (
+                      <span className="text-[10px] font-mono text-gray-400 dark:text-gray-500 truncate max-w-[200px]" title={log.url}>
+                        {log.url}
+                      </span>
+                    )}
+                    {log.status && (
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                        log.status >= 200 && log.status < 300 ? 'bg-green-100/50 text-green-700 dark:bg-green-900/40 dark:text-green-300' : 'bg-red-100/50 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                      }`}>
+                        {log.status}
                       </span>
                     )}
                     {log.responseTime && (

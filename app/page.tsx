@@ -6,10 +6,11 @@ import SettingsPanel from '@/components/SettingsPanel';
 import CodeBlock from '@/components/CodeBlock';
 import SDKTestingPanel from '@/components/SDKTestingPanel';
 import AutoTestPanel from '@/components/AutoTestPanel';
+import HTTPTestingPanel from '@/components/HTTPTestingPanel';
 import { defaultSettings, type PlaygroundSettings } from '@/lib/chat-config';
 import { generateCodeSnippet } from '@/lib/code-generator';
 
-type Tab = 'chat' | 'sdk' | 'auto';
+type Tab = 'chat' | 'sdk' | 'auto' | 'http';
 
 const ChatPreview = dynamic(() => import('@/components/ChatPreview'), {
   ssr: false,
@@ -146,34 +147,14 @@ export default function Home() {
         error: 'Failed to parse error response',
       }));
       
-      // Create a custom error with structured data
-      const error = new Error(errorData.error || 'Failed to execute SDK method') as Error & {
-        suggestions?: string[];
-        code?: string;
-        field?: string;
-        details?: string;
-      };
-      
-      if (errorData.suggestions) {
-        error.suggestions = errorData.suggestions;
-      }
-      if (errorData.code) {
-        error.code = errorData.code;
-      }
-      if (errorData.field) {
-        error.field = errorData.field;
-      }
-      if (errorData.details) {
-        error.details = errorData.details;
-      }
-      
-      throw error;
+      // Throw the raw error data so the caller can see the full SDK/API response
+      throw errorData;
     }
 
     const data = await response.json();
     return {
-      result: data.result,
-      serverToken: data.serverToken, // Include server token for logging
+      result: data,
+      serverToken: response.headers.get('x-server-token'),
     };
   };
 
@@ -242,6 +223,16 @@ export default function Home() {
           >
             Auto Test
           </button>
+          <button
+            onClick={() => setActiveTab('http')}
+            className={`px-6 py-3 text-sm font-medium transition-colors ${
+              activeTab === 'http'
+                ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+            }`}
+          >
+            HTTP Direct
+          </button>
         </div>
       </div>
 
@@ -291,7 +282,11 @@ export default function Home() {
         </div>
       ) : activeTab === 'sdk' ? (
         <div className="flex-1 overflow-hidden">
-          <SDKTestingPanel onExecute={handleSDKExecute} token={settings.token} />
+          <SDKTestingPanel onExecute={handleSDKExecute} token={settings.token} baseUrl={settings.baseUrl} />
+        </div>
+      ) : activeTab === 'http' ? (
+        <div className="flex-1 overflow-hidden">
+          <HTTPTestingPanel />
         </div>
       ) : (
         <div className="flex-1 overflow-hidden">

@@ -165,6 +165,7 @@ export function generateSDKCode(request: RequestData): string {
       return `await sdk.getUsers();`;
     },
     updateUsers: (p) => `await sdk.updateUsers(${JSON.stringify(p.users, null, 2)});`,
+    sendPushToUser: (p) => `await sdk.sendPushToUser('${p.userId}', ${JSON.stringify(p.data, null, 2)});`,
   };
 
   const generator = methodMap[method];
@@ -218,14 +219,14 @@ function generateDirectAPICode(request: RequestData, apiUrl: string = 'https://a
 
   // Map SDK methods to API endpoints
   const apiEndpoints: Record<string, { endpoint: string; httpMethod: string }> = {
-    updateUsers: { endpoint: '/v1/chats/users', httpMethod: 'PATCH' },
-    createUser: { endpoint: '/v1/chats/users', httpMethod: 'POST' },
-    getUsers: { endpoint: '/v1/chats/users', httpMethod: 'GET' },
-    deleteUsers: { endpoint: '/v1/chats/users', httpMethod: 'DELETE' },
+    updateUsers: { endpoint: '/v1/users', httpMethod: 'PATCH' },
+    createUser: { endpoint: '/v1/users', httpMethod: 'POST' },
+    getUsers: { endpoint: '/v1/users', httpMethod: 'GET' },
+    deleteUsers: { endpoint: '/v1/users', httpMethod: 'DELETE' },
     createChatRoom: { endpoint: '/v1/chats/rooms', httpMethod: 'POST' },
     deleteChatRoom: { endpoint: '/v1/chats/rooms', httpMethod: 'DELETE' },
     grantUserAccessToChatRoom: { endpoint: '/v1/chats/users-access', httpMethod: 'POST' },
-    grantChatbotAccessToChatRoom: { endpoint: '/v1/chats/bots-access', httpMethod: 'POST' },
+    sendPushToUser: { endpoint: '/v1/push/user/:userId', httpMethod: 'POST' },
   };
 
   const apiInfo = apiEndpoints[method];
@@ -233,7 +234,9 @@ function generateDirectAPICode(request: RequestData, apiUrl: string = 'https://a
     return `// Direct API call not available for method: ${method}\n// Use SDK or local API endpoint instead`;
   }
 
-  const url = `${apiUrl}${apiInfo.endpoint}`;
+  const url = apiInfo.endpoint.includes(':') 
+    ? `${apiUrl}${apiInfo.endpoint.replace(/:(\w+)/g, (_, key) => params[key] || `:${key}`)}`
+    : `${apiUrl}${apiInfo.endpoint}`;
   const httpMethod = apiInfo.httpMethod;
 
   // Generate server-to-server token helper

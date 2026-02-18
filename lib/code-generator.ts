@@ -48,6 +48,12 @@ const clientToken = chatRepo.createChatUserJwtToken('${settings.userId}');
 // Get room JID
 const roomJID = chatRepo.createChatName('${settings.roomId}', true);
 
+// Send push notification
+await chatRepo.sendPushToUser('${settings.userId}', {
+  title: 'Hello',
+  message: 'This is a push notification',
+});
+
 `
     : '';
 

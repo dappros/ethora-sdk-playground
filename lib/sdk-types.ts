@@ -92,6 +92,11 @@ export interface RemoveUserAccessFromChatRoomParams {
   userId: string | string[];
 }
 
+export interface SendPushToUserParams {
+  userId: string;
+  data: Record<string, any>;
+}
+
 // SDK Method Result Types
 export type CreateChatRoomResult = any;
 export type CreateUserResult = any;
@@ -104,6 +109,7 @@ export type DeleteUsersResult = any;
 export type GetUsersResult = any[];
 export type UpdateUsersResult = any;
 export type DeleteUsersAccessResult = any;
+export type SendPushToUserResult = any;
 
 // Union type for all SDK method names
 export type SDKMethodName =
@@ -118,7 +124,8 @@ export type SDKMethodName =
   | 'getUsers'
   | 'updateUsers'
   | 'removeUserAccessFromChatRoom'
-  | 'deleteUsersAccess';
+  | 'deleteUsersAccess'
+  | 'sendPushToUser';
 
 // Union type for all SDK method parameters
 export type SDKMethodParams =
@@ -133,7 +140,8 @@ export type SDKMethodParams =
   | GetUsersParams
   | UpdateUsersParams
   | RemoveUserAccessFromChatRoomParams
-  | DeleteUsersAccessParams;
+  | DeleteUsersAccessParams
+  | SendPushToUserParams;
 
 // Type guard functions
 export function isCreateChatRoomParams(params: any): params is CreateChatRoomParams {
@@ -208,6 +216,16 @@ export function isRemoveUserAccessFromChatRoomParams(
     (typeof params.userId === 'string' ||
       (Array.isArray(params.userId) &&
         params.userId.every((id: any) => typeof id === 'string')))
+  );
+}
+
+export function isSendPushToUserParams(params: any): params is SendPushToUserParams {
+  return (
+    params &&
+    typeof params.userId === 'string' &&
+    params.userId.length > 0 &&
+    params.data &&
+    typeof params.data === 'object'
   );
 }
 

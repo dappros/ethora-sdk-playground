@@ -35,6 +35,7 @@ import {
   isUpdateUsersParams,
   isDeleteUsersAccessParams,
   isRemoveUserAccessFromChatRoomParams,
+  isSendPushToUserParams,
   createSDKError,
   ERROR_SUGGESTIONS,
 } from "@/lib/sdk-types";
@@ -449,17 +450,76 @@ export async function POST(request: NextRequest) {
 
       case "removeUserAccessFromChatRoom": {
         if (!isRemoveUserAccessFromChatRoomParams(params)) {
-          const error = createSDKError(
-            "Invalid parameters for removeUserAccessFromChatRoom: chatId and userId are required",
-            "INVALID_PARAMS",
-            [...ERROR_SUGGESTIONS.MISSING_chat_ID, ...ERROR_SUGGESTIONS.MISSING_USER_ID]
-          );
           return NextResponse.json(
-            { error: error.message, suggestions: error.suggestions, code: error.code },
+            { error: "chatId and userId are required" },
             { status: 400 }
           );
         }
-        result = await (sdk as any).removeUserAccessFromChatRoom(params.chatId, params.userId);
+        
+        // Try SDK method first, fallback to direct API call if not a function
+        if (typeof (sdk as any).removeUserAccessFromChatRoom === 'function') {
+          result = await (sdk as any).removeUserAccessFromChatRoom(params.chatId, params.userId);
+        } else {
+          const baseUrl = (process.env.ETHORA_CHAT_API_URL || 'https://api.ethoradev.com').replace(/\/$/, '');
+          const token = generateServerToken();
+          const response = await fetch(`${baseUrl}/v1/chats/users-access`, {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-custom-token': token || '',
+            },
+            body: JSON.stringify({
+              chatId: params.chatId,
+              userId: params.userId,
+            }),
+          });
+          
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `API error: ${response.status} ${response.statusText}`);
+          }
+          
+          result = await response.json();
+        }
+        break;
+      }
+
+      case "sendPushToUser": {
+        if (!isSendPushToUserParams(params)) {
+          const error = createSDKError(
+            "Invalid parameters for sendPushToUser: userId and data are required",
+            "INVALID_PARAMS",
+            ERROR_SUGGESTIONS.MISSING_USER_ID,
+            "userId"
+          );
+          return NextResponse.json(
+            { error: error.message, suggestions: error.suggestions, code: error.code, field: error.field },
+            { status: 400 }
+          );
+        }
+
+        // Use SDK method if available, otherwise direct API call
+        if (typeof (sdk as any).sendPushToUser === 'function') {
+          result = await (sdk as any).sendPushToUser(params.userId, params.data);
+        } else {
+          const baseUrl = (process.env.ETHORA_CHAT_API_URL || 'https://api.ethoradev.com').replace(/\/$/, '');
+          const token = generateServerToken();
+          const response = await fetch(`${baseUrl}/v1/push/user/${params.userId}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-custom-token': token || '',
+            },
+            body: JSON.stringify(params.data),
+          });
+          
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `API error: ${response.status} ${response.statusText}`);
+          }
+          
+          result = await response.json();
+        }
         break;
       }
 
@@ -475,96 +535,35 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Generate server token for logging purposes
+    // Return the SDK result directly as requested
     const serverToken = generateServerToken();
-
-    return NextResponse.json({
-      success: true,
-      method,
-      result,
-      serverToken, // Include the actual x-custom-token value
-    });
+    const response = NextResponse.json(result);
+    
+    if (serverToken) {
+      response.headers.set('x-server-token', serverToken);
+    }
+    
+    return response;
   } catch (error) {
     console.error("Error executing SDK method:", error);
 
-    // Extract actual API error message from Axios errors
-    let actualErrorMessage = error instanceof Error ? error.message : "Failed to execute SDK method";
-    let httpStatus = 500;
-    
-    // Check if it's an AxiosError with response data
+    // If it's an Axios/SDK error with a response, return that data directly
     if (error && typeof error === 'object' && 'response' in error) {
       const axiosError = error as any;
-      if (axiosError.response?.data?.error) {
-        actualErrorMessage = axiosError.response.data.error;
-        httpStatus = axiosError.response.status || 500;
-      } else if (axiosError.response?.status) {
-        httpStatus = axiosError.response.status;
+      if (axiosError.response?.data) {
+        return NextResponse.json(axiosError.response.data, {
+          status: axiosError.response.status || 500
+        });
       }
     }
 
-    // Check if it's a configuration error
-    if (error instanceof Error && error.message.includes("Missing required")) {
-      const sdkError = createErrorResponse(SDKErrorCode.SDK_NOT_CONFIGURED);
-      return NextResponse.json(
-        {
-          error: sdkError.message,
-          suggestions: sdkError.suggestions,
-          code: sdkError.code,
-        },
-        { status: sdkError.httpStatus || 500 }
-      );
-    }
-
-    // Check for network errors
-    if (error instanceof Error && (
-      error.message.includes("fetch") ||
-      error.message.includes("network") ||
-      error.message.includes("ECONNREFUSED") ||
-      error.message.includes("ETIMEDOUT")
-    )) {
-      const sdkError = createErrorResponse(
-        SDKErrorCode.NETWORK_ERROR,
-        error.message
-      );
-      return NextResponse.json(
-        {
-          error: sdkError.message,
-          suggestions: sdkError.suggestions,
-          code: sdkError.code,
-        },
-        { status: sdkError.httpStatus || 500 }
-      );
-    }
-
-    // Check for timeout errors
-    if (error instanceof Error && error.message.includes("timeout")) {
-      const sdkError = createErrorResponse(
-        SDKErrorCode.TIMEOUT_ERROR,
-        error.message
-      );
-      return NextResponse.json(
-        {
-          error: sdkError.message,
-          suggestions: sdkError.suggestions,
-          code: sdkError.code,
-        },
-        { status: sdkError.httpStatus || 504 }
-      );
-    }
-
-    const sdkError = createErrorResponse(
-      SDKErrorCode.SDK_EXECUTION_ERROR,
-      actualErrorMessage
-    );
-
+    // Default error response
     return NextResponse.json(
-      {
-        error: sdkError.message,
-        suggestions: sdkError.suggestions,
-        code: sdkError.code,
-        details: error instanceof Error ? error.stack : undefined,
+      { 
+        error: error instanceof Error ? error.message : "Failed to execute SDK method",
+        details: error instanceof Error ? error.stack : undefined
       },
-      { status: httpStatus || sdkError.httpStatus || 500 }
+      { status: 500 }
     );
   }
 }

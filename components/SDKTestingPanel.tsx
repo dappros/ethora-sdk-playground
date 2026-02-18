@@ -12,6 +12,7 @@ import ResponseLogger, { type LogEntry } from './ResponseLogger';
 interface SDKTestingPanelProps {
   onExecute: (method: string, params: any, files?: File[]) => Promise<any>;
   token?: string;
+  baseUrl?: string;
 }
 
 interface APIError {
@@ -132,9 +133,18 @@ const SDK_METHODS = [
       { key: 'userId', label: 'User ID (comma-separated for multiple)', type: 'text', required: true },
     ],
   },
+  {
+    id: 'sendPushToUser',
+    name: 'Send Push to User',
+    description: 'Send a push notification to a specific user',
+    params: [
+      { key: 'userId', label: 'User ID', type: 'text', required: true },
+      { key: 'data', label: 'Push Data JSON', type: 'textarea', required: true },
+    ],
+  },
 ];
 
-export default function SDKTestingPanel({ onExecute, token }: SDKTestingPanelProps) {
+export default function SDKTestingPanel({ onExecute, token, baseUrl }: SDKTestingPanelProps) {
   const [selectedMethod, setSelectedMethod] = useState<SDKMethodName>(SDK_METHODS[0].id as SDKMethodName);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [files, setFiles] = useState<File[]>([]);
@@ -146,6 +156,7 @@ export default function SDKTestingPanel({ onExecute, token }: SDKTestingPanelPro
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [showHistory, setShowHistory] = useState(false);
   const [showCodeExport, setShowCodeExport] = useState(false);
+  const [showApiInfo, setShowApiInfo] = useState(false);
   const [exportFormat, setExportFormat] = useState<ExportFormat>('sdk');
 
   const currentMethod = SDK_METHODS.find((m) => m.id === selectedMethod);
@@ -237,6 +248,16 @@ export default function SDKTestingPanel({ onExecute, token }: SDKTestingPanelPro
         generated[param.key] = `chat-${timestamp}`;
       } else if (param.key === 'members') {
         generated[param.key] = `user-1,user-2`;
+      } else if (param.key === 'data' && selectedMethod === 'sendPushToUser') {
+        generated[param.key] = JSON.stringify(
+          {
+            title: 'Hello',
+            message: 'This is a push notification',
+            sound: 'default',
+          },
+          null,
+          2
+        );
       }
     });
 
@@ -326,6 +347,13 @@ export default function SDKTestingPanel({ onExecute, token }: SDKTestingPanelPro
     if (key === 'members' && value) {
       if (value.trim().length === 0) {
         errors[key] = 'Members are required';
+      }
+    }
+
+    if (key === 'data' && value) {
+      const validation = validateJSON(value);
+      if (!validation.valid) {
+        errors[key] = `Invalid JSON: ${validation.error}`;
       }
     }
 
@@ -421,6 +449,11 @@ export default function SDKTestingPanel({ onExecute, token }: SDKTestingPanelPro
           : [];
         params.chatId = formData.chatId;
         params.userId = members.length > 1 ? members : members[0];
+      } else if (selectedMethod === 'sendPushToUser') {
+        params = {
+          userId: formData.userId,
+          data: JSON.parse(formData.data || '{}'),
+        };
       }
 
       // Generate headers info (x-custom-token is automatically added by SDK backend)
@@ -431,7 +464,7 @@ export default function SDKTestingPanel({ onExecute, token }: SDKTestingPanelPro
       // Add placeholder for x-custom-token for server-to-server methods
       // The actual token will be updated after the request completes
       if (['updateUsers', 'createUser', 'getUsers', 'deleteUsers', 'createChatRoom', 'removeUserAccessFromChatRoom',
-           'deleteChatRoom', 'grantUserAccessToChatRoom', 'grantChatbotAccessToChatRoom'].includes(selectedMethod)) {
+           'deleteChatRoom', 'grantUserAccessToChatRoom', 'grantChatbotAccessToChatRoom', 'sendPushToUser'].includes(selectedMethod)) {
         headers['x-custom-token'] = 'Generating...';
       }
 
@@ -519,7 +552,10 @@ export default function SDKTestingPanel({ onExecute, token }: SDKTestingPanelPro
         },
       };
       setLogs((prev) => [errorLog, ...prev.slice(0, 49)]);
+
       // Parse structured error response
+      let displayError: APIError;
+
       if (err instanceof Error) {
         const errorWithExtras = err as Error & {
           suggestions?: string[];
@@ -527,104 +563,112 @@ export default function SDKTestingPanel({ onExecute, token }: SDKTestingPanelPro
           field?: string;
           details?: string;
         };
-        
-        setError({
+        displayError = {
           error: errorWithExtras.message,
-          suggestions: errorWithExtras.suggestions || [
-            'Check that all required fields are filled',
-            'Verify the data format is correct',
-            'Review the error message for specific issues',
-          ],
+          suggestions: errorWithExtras.suggestions,
           code: errorWithExtras.code,
           field: errorWithExtras.field,
           details: errorWithExtras.details,
-        });
-
-        // Save failed request to history - reconstruct params from formData
-        let errorParams: any = {};
-        try {
-          if (selectedMethod === 'deleteUsers') {
-            errorParams.userIds = formData.userIds
-              ? formData.userIds.split(',').map((id: string) => id.trim())
-              : [];
-          } else if (selectedMethod === 'updateUsers') {
-            const usersJson = formData.users || '[]';
-            errorParams.users = JSON.parse(usersJson);
-          } else if (selectedMethod === 'getUsers') {
-            errorParams = {};
-            if (formData.chatName) errorParams.chatName = formData.chatName;
-            if (formData.xmppUsername) errorParams.xmppUsername = formData.xmppUsername;
-          } else if (selectedMethod === 'createChatName') {
-            errorParams = {
-              chatId: formData.chatId,
-              full: formData.full !== undefined ? formData.full : true,
-            };
-          } else if (selectedMethod === 'createChatUserJwtToken') {
-            errorParams = { userId: formData.userId };
-          } else if (selectedMethod === 'grantChatbotAccessToChatRoom') {
-            errorParams = { chatId: formData.chatId };
-          } else if (selectedMethod === 'grantUserAccessToChatRoom') {
-            errorParams = {
-              chatId: formData.chatId,
-              userId: formData.userId,
-            };
-          } else if (selectedMethod === 'createUser') {
-            errorParams = {
-              userId: formData.userId,
-              userData: {
-                email: formData.email,
-                firstName: formData.firstName,
-                lastName: formData.lastName,
-                ...(formData.password && { password: formData.password }),
-                ...(formData.uuid && { uuid: formData.uuid }),
-                ...(formData.profileImage && { profileImage: formData.profileImage }),
-                ...(formData.profileImageFileIndex !== undefined && {
-                  profileImageFileIndex: Number(formData.profileImageFileIndex),
-                }),
-                ...(formData.displayName && { displayName: formData.displayName }),
-              },
-            };
-          } else if (selectedMethod === 'createChatRoom') {
-            errorParams = {
-              chatId: formData.chatId,
-              roomData: {
-                ...(formData.title && { title: formData.title }),
-                uuid: formData.chatId,
-                type: formData.type || 'group',
-              },
-            };
-          } else if (selectedMethod === 'deleteChatRoom') {
-            errorParams = { chatId: formData.chatId };
-          } else if (selectedMethod === 'removeUserAccessFromChatRoom') {
-            const members = formData.userId
-              ? formData.userId.split(',').map((m: string) => m.trim()).filter(Boolean)
-              : [];
-            errorParams = {
-              chatId: formData.chatId,
-              userId: members.length > 1 ? members : members[0],
-            };
-          }
-        } catch {
-          // If reconstruction fails, use empty object
-        }
-        
-        saveRequestToHistory({
-          method: selectedMethod,
-          params: errorParams,
-          error: errorWithExtras,
-          success: false,
-          responseTime: elapsed,
-        });
+        };
+      } else if (err && typeof err === 'object') {
+        const errObj = err as any;
+        displayError = {
+          error: errObj.error || errObj.message || 'An unexpected error occurred',
+          suggestions: errObj.suggestions,
+          code: errObj.code,
+          field: errObj.field,
+          details: typeof errObj.details === 'object' ? JSON.stringify(errObj.details, null, 2) : errObj.details,
+        };
       } else {
-        setError({
-          error: 'An unexpected error occurred',
-          suggestions: [
-            'Try again in a moment',
-            'Check your network connection',
-            'Verify the SDK is properly configured',
-          ],
-        });
+        displayError = {
+          error: String(err) || 'An unexpected error occurred',
+        };
       }
+
+      setError({
+        ...displayError,
+        suggestions: displayError.suggestions || [
+          'Check that all required fields are filled',
+          'Verify the data format is correct',
+          'Review the error message for specific issues',
+        ],
+      });
+
+      // Save failed request to history - reconstruct params from formData
+      let errorParams: any = {};
+      try {
+        if (selectedMethod === 'deleteUsers') {
+          errorParams.userIds = formData.userIds
+            ? formData.userIds.split(',').map((id: string) => id.trim())
+            : [];
+        } else if (selectedMethod === 'updateUsers') {
+          const usersJson = formData.users || '[]';
+          errorParams.users = JSON.parse(usersJson);
+        } else if (selectedMethod === 'getUsers') {
+          errorParams = {};
+          if (formData.chatName) errorParams.chatName = formData.chatName;
+          if (formData.xmppUsername) errorParams.xmppUsername = formData.xmppUsername;
+        } else if (selectedMethod === 'createChatName') {
+          errorParams = {
+            chatId: formData.chatId,
+            full: formData.full !== undefined ? formData.full : true,
+          };
+        } else if (selectedMethod === 'createChatUserJwtToken') {
+          errorParams = { userId: formData.userId };
+        } else if (selectedMethod === 'grantChatbotAccessToChatRoom') {
+          errorParams = { chatId: formData.chatId };
+        } else if (selectedMethod === 'grantUserAccessToChatRoom') {
+          errorParams = {
+            chatId: formData.chatId,
+            userId: formData.userId,
+          };
+        } else if (selectedMethod === 'createUser') {
+          errorParams = {
+            userId: formData.userId,
+            userData: {
+              email: formData.email,
+              firstName: formData.firstName,
+              lastName: formData.lastName,
+              ...(formData.password && { password: formData.password }),
+              ...(formData.uuid && { uuid: formData.uuid }),
+              ...(formData.profileImage && { profileImage: formData.profileImage }),
+              ...(formData.profileImageFileIndex !== undefined && {
+                profileImageFileIndex: Number(formData.profileImageFileIndex),
+              }),
+              ...(formData.displayName && { displayName: formData.displayName }),
+            },
+          };
+        } else if (selectedMethod === 'createChatRoom') {
+          errorParams = {
+            chatId: formData.chatId,
+            roomData: {
+              ...(formData.title && { title: formData.title }),
+              uuid: formData.chatId,
+              type: formData.type || 'group',
+            },
+          };
+        } else if (selectedMethod === 'deleteChatRoom') {
+          errorParams = { chatId: formData.chatId };
+        } else if (selectedMethod === 'removeUserAccessFromChatRoom') {
+          const members = formData.userId
+            ? formData.userId.split(',').map((m: string) => m.trim()).filter(Boolean)
+            : [];
+          errorParams = {
+            chatId: formData.chatId,
+            userId: members.length > 1 ? members : members[0],
+          };
+        }
+      } catch {
+        // If reconstruction fails, use empty object
+      }
+      
+      saveRequestToHistory({
+        method: selectedMethod,
+        params: errorParams,
+        error: displayError,
+        success: false,
+        responseTime: elapsed,
+      });
     } finally {
       setLoading(false);
     }
@@ -729,6 +773,11 @@ export default function SDKTestingPanel({ onExecute, token }: SDKTestingPanelPro
           : [];
         params.chatId = formData.chatId;
         params.userId = members.length > 1 ? members : members[0];
+      } else if (selectedMethod === 'sendPushToUser') {
+        params = {
+          userId: formData.userId,
+          data: JSON.parse(formData.data || '{}'),
+        };
       } else {
         params = formData;
       }
@@ -768,6 +817,19 @@ export default function SDKTestingPanel({ onExecute, token }: SDKTestingPanelPro
           </div>
           <div className="flex gap-2">
             <button
+              onClick={() => setShowApiInfo(!showApiInfo)}
+              className={`px-3 py-1.5 text-xs rounded-md transition-colors flex items-center gap-1 ${
+                showApiInfo 
+                  ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300' 
+                  : 'bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
+              }`}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              {showApiInfo ? 'Hide' : 'Show'} API Info
+            </button>
+            <button
               onClick={() => setShowHistory(!showHistory)}
               className="px-3 py-1.5 text-xs bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md transition-colors"
             >
@@ -784,6 +846,48 @@ export default function SDKTestingPanel({ onExecute, token }: SDKTestingPanelPro
         {responseTime !== null && (
           <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
             Response time: <span className="font-mono">{responseTime}ms</span>
+          </div>
+        )}
+
+        {/* API Info Panel */}
+        {showApiInfo && (
+          <div className="mt-4 p-3 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-lg animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-blue-800 dark:text-blue-400 uppercase tracking-wider">Current API Configuration</span>
+                <span className="px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 text-[10px] rounded font-mono">Live Info</span>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+                    <span className="text-[11px] font-medium text-gray-700 dark:text-gray-300">Base URL (Settings)</span>
+                  </div>
+                  <div className="px-2 py-1.5 bg-white dark:bg-gray-950 border border-blue-100 dark:border-blue-900/50 rounded text-[11px] font-mono text-gray-600 dark:text-gray-400 break-all">
+                    {baseUrl || 'Not configured'}
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-500"></div>
+                    <span className="text-[11px] font-medium text-gray-700 dark:text-gray-300">Environment Variable</span>
+                  </div>
+                  <div className="px-2 py-1.5 bg-white dark:bg-gray-950 border border-blue-100 dark:border-blue-900/50 rounded text-[11px] font-mono text-gray-600 dark:text-gray-400 break-all">
+                    <span className="text-gray-400 dark:text-gray-500 mr-1">NEXT_PUBLIC_ETHORA_CHAT_API_URL:</span>
+                    {process.env.NEXT_PUBLIC_ETHORA_CHAT_API_URL || 'Undefined'}
+                  </div>
+                </div>
+              </div>
+
+              <div className="text-[10px] text-gray-500 dark:text-gray-500 italic flex items-center gap-1">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Note: Backend SDK operations utilize the server-side environment variables and settings passed from the client.
+              </div>
+            </div>
           </div>
         )}
       </div>
