@@ -19,6 +19,10 @@ export function getSDKInstance(): ChatRepository {
       process.env.ETHORA_CHAT_API_URL = 'https://api.ethoradev.com';
     }
 
+    if (!process.env.ETHORA_XMPP_DEV_SERVER) {
+      process.env.ETHORA_XMPP_DEV_SERVER = 'wss://xmpp.ethoradev.com:5443/ws';
+    }
+
     // Verify that APP_ID and APP_SECRET are set if SDK requires them
     // Don't set defaults - let SDK throw error if they're missing
     const requiredEnvVars = [

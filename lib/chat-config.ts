@@ -282,11 +282,21 @@ export const defaultSettings: PlaygroundSettings = {
   primaryColor: '#ffffff',
   secondaryColor: '#141414',
   theme: 'light',
-  qrUrl: 'https://app.ethora.com/app/chat/?qrChatId=',
-  xmppDevServer: 'wss://xmpp.ethoradev.com:5443/ws',
-  xmppHost: 'xmpp.ethoradev.com',
-  xmppConference: 'conference.xmpp.ethoradev.com',
-  xmppPingOnSendEnabled: true,
+  qrUrl: typeof process !== 'undefined' && process.env.NEXT_PUBLIC_ETHORA_CHAT_QR_URL
+    ? process.env.NEXT_PUBLIC_ETHORA_CHAT_QR_URL
+    : 'https://app.ethoradev.com/app/chat/?qrChatId=',
+  xmppDevServer: typeof process !== 'undefined' && (process.env.NEXT_PUBLIC_ETHORA_XMPP_DEV_SERVER || process.env.ETHORA_XMPP_DEV_SERVER)
+    ? (process.env.NEXT_PUBLIC_ETHORA_XMPP_DEV_SERVER || process.env.ETHORA_XMPP_DEV_SERVER) as string
+    : 'wss://xmpp.ethoradev.com:5443/ws',
+  xmppHost: typeof process !== 'undefined' && (process.env.NEXT_PUBLIC_ETHORA_XMPP_HOST || process.env.ETHORA_XMPP_HOST)
+    ? (process.env.NEXT_PUBLIC_ETHORA_XMPP_HOST || process.env.ETHORA_XMPP_HOST) as string
+    : 'xmpp.ethoradev.com',
+  xmppConference: typeof process !== 'undefined' && (process.env.NEXT_PUBLIC_ETHORA_XMPP_CONFERENCE || process.env.ETHORA_XMPP_CONFERENCE)
+    ? (process.env.NEXT_PUBLIC_ETHORA_XMPP_CONFERENCE || process.env.ETHORA_XMPP_CONFERENCE) as string
+    : 'conference.xmpp.ethoradev.com',
+  xmppPingOnSendEnabled: typeof process !== 'undefined' && (process.env.NEXT_PUBLIC_ETHORA_XMPP_PING_ON_SEND_ENABLED === 'false' || process.env.ETHORA_XMPP_PING_ON_SEND_ENABLED === 'false')
+    ? false
+    : true,
   newArch: true,
   disableRooms: false,
   disableRoomMenu: false,
@@ -477,17 +487,17 @@ export const REMOUNT_REQUIRED_SETTINGS: (keyof PlaygroundSettings)[] = [
   'clearStoreBeforeInit',
   'initBeforeLoad',
   'baseUrl',
-  'customAppToken',
   'xmppDevServer',
   'xmppHost',
   'xmppConference',
+  'xmppPingOnSendEnabled',
   'disableRooms',
   'defaultLogin',
   'forceSetRoom',
   'setRoomJidInPath',
   'refreshTokensEnabled',
   'enableRoomsRetry',
-  // Add 'useStoreConsoleEnabled' here if you add it to PlaygroundSettings
+  'customAppToken',
 ];
 
 /**

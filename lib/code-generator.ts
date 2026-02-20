@@ -227,10 +227,13 @@ export default function ChatComponent() {
 }
 `;
 
-  const envComment = `// Environment variables required:
-// ETHORA_CHAT_API_URL=${process.env.ETHORA_CHAT_API_URL || 'https://api.ethoradev.com'}
+  const envComment = `// Environment variables:
+// ETHORA_CHAT_API_URL=${settings.baseUrl.replace('/v1', '')}
 // ETHORA_CHAT_APP_ID=your_app_id
 // ETHORA_CHAT_APP_SECRET=your_app_secret
+// ETHORA_XMPP_DEV_SERVER=${settings.xmppDevServer}
+// ETHORA_XMPP_HOST=${settings.xmppHost}
+// ETHORA_XMPP_CONFERENCE=${settings.xmppConference}
 
 `;
 

@@ -20,27 +20,36 @@ npm install
 
 ### 2. Configure Environment Variables
 
-Create a `.env.local` file in the `playground-nextjs` directory:
+Create a `.env.local` file in the root directory.
+
+#### Backend Secrets (Required)
+These variables are used by the server-side proxy to interact with Ethora APIs and **must not** have the `NEXT_PUBLIC_` prefix to keep them secure.
 
 ```bash
-ETHORA_CHAT_API_URL=https://api.ethoradev.com
 ETHORA_CHAT_APP_ID=your_app_id
 ETHORA_CHAT_APP_SECRET=your_app_secret
-NEXT_PUBLIC_BACKEND_URL=http://localhost:3000
+```
+
+#### Frontend & Connection Settings (Recommended)
+These variables can be prefixed with `NEXT_PUBLIC_` to be accessible directly by the chat component in the browser. The playground also supports non-prefixed versions via an internal config API.
+
+```bash
+# API & General
+NEXT_PUBLIC_ETHORA_CHAT_API_URL=https://api.ethoradev.com
+NEXT_PUBLIC_ETHORA_CHAT_QR_URL=https://app.ethora.com/app/chat/?qrChatId=
+
+# XMPP Connection
+NEXT_PUBLIC_ETHORA_XMPP_DEV_SERVER=wss://xmpp.ethoradev.com:5443/ws
+NEXT_PUBLIC_ETHORA_XMPP_HOST=xmpp.ethoradev.com
+NEXT_PUBLIC_ETHORA_XMPP_CONFERENCE=conference.xmpp.ethoradev.com
+
+# Defaults for Playground
 ETHORA_CHAT_USER_ID=playground-user-1
 ETHORA_CHAT_ROOM_ID=playground-room-1
-ETHORA_CHAT_PRIMARY_COLOR=#ffffff
-ETHORA_CHAT_SECONDARY_COLOR=#141414
-ETHORA_CHAT_THEME=light
-ETHORA_CHAT_QR_URL=https://app.ethora.com/app/chat/?qrChatId=
-ETHORA_XMPP_DEV_SERVER=wss://xmpp.ethoradev.com:5443/ws
-ETHORA_XMPP_HOST=xmpp.ethoradev.com
-ETHORA_XMPP_CONFERENCE=conference.xmpp.ethoradev.com
-ETHORA_XMPP_PING_ON_SEND_ENABLED=true
 ```
 
 **Important**: Replace `your_app_id` and `your_app_secret` with your actual Ethora app credentials from [ethora.com](https://ethora.com).
-**Tip**: The Settings panel now pre-fills from `.env.local`. All keys above are optional (defaults apply if omitted). You can also use `NEXT_PUBLIC_` variants for client-visible settings.
+**Tip**: The Settings panel pre-fills from these variables. If you change `.env.local`, remember to restart the development server.
 
 ### 3. Run the Development Server
 
