@@ -14,9 +14,6 @@ import type {
   CreateChatRoomParams,
   CreateUserParams,
   GrantUserAccessParams,
-  GrantChatbotAccessParams,
-  CreateChatUserJwtTokenParams,
-  CreateChatNameParams,
   DeleteChatRoomParams,
   DeleteUsersParams,
   GetUsersParams,
@@ -26,9 +23,6 @@ import {
   isCreateChatRoomParams,
   isCreateUserParams,
   isGrantUserAccessParams,
-  isGrantChatbotAccessParams,
-  isCreateChatUserJwtTokenParams,
-  isCreateChatNameParams,
   isDeleteChatRoomParams,
   isDeleteUsersParams,
   isGetUsersParams,
@@ -69,7 +63,9 @@ export async function POST(request: NextRequest) {
     }
 
     const { method, params } = body;
-
+    const appId = process.env.ETHORA_CHAT_APP_ID || "";
+    console.log(`[SDK Proxy] Method: ${method}, appId: ${appId ? '(set)' : '(not set)'}`);
+    
     if (!method || typeof method !== "string") {
       const error = createErrorResponse(SDKErrorCode.MISSING_METHOD);
       return NextResponse.json(
@@ -79,6 +75,9 @@ export async function POST(request: NextRequest) {
     }
 
     const sdk = getSDKInstance();
+    (sdk as any).lastUrl = undefined;
+    
+    const apiBaseUrl = (process.env.ETHORA_CHAT_API_URL || 'https://api.ethoradev.com').replace(/\/$/, '');
 
     let result: any;
 
@@ -96,6 +95,7 @@ export async function POST(request: NextRequest) {
             { status: 400 }
           );
         }
+        (sdk as any).lastUrl = `${apiBaseUrl}/v2/chats`;
         result = await sdk.createChatRoom(
           params.chatId,
           (params.roomData || {}) as Record<string, unknown>
@@ -171,10 +171,14 @@ export async function POST(request: NextRequest) {
         }
 
         // Call SDK with files parameter if files are provided
-        // The SDK backend expects files as Buffer[] in the third parameter
         if (createUserFileBuffers.length > 0) {
           result = await (sdk.createUser as any)(params.userId, userData, createUserFileBuffers);
         } else {
+          // Adjust lastName if missing to meet API requirements (min 2 chars)
+          if (!userData.lastName || (userData.lastName as string).length < 2) {
+            userData.lastName = (userData.lastName as string) || 'User';
+          }
+          (sdk as any).lastUrl = `${apiBaseUrl}/v2/users/batch`;
           result = await sdk.createUser(params.userId, userData as Record<string, unknown>);
         }
         break;
@@ -192,6 +196,7 @@ export async function POST(request: NextRequest) {
             { status: 400 }
           );
         }
+        (sdk as any).lastUrl = `${apiBaseUrl}/v2/chats/users-access`;
         result = await sdk.grantUserAccessToChatRoom(
           params.chatId,
           params.userId
@@ -199,61 +204,7 @@ export async function POST(request: NextRequest) {
         break;
       }
 
-      case "grantChatbotAccessToChatRoom": {
-        if (!isGrantChatbotAccessParams(params)) {
-          const error = createSDKError(
-            "Invalid parameters for grantChatbotAccessToChatRoom: chatId is required",
-            "INVALID_PARAMS",
-            ERROR_SUGGESTIONS.MISSING_chat_ID,
-            "chatId"
-          );
-          return NextResponse.json(
-            { error: error.message, suggestions: error.suggestions, code: error.code, field: error.field },
-            { status: 400 }
-          );
-        }
-        result = await sdk.grantChatbotAccessToChatRoom(params.chatId);
-        break;
-      }
 
-      case "createChatUserJwtToken": {
-        if (!isCreateChatUserJwtTokenParams(params)) {
-          const error = createSDKError(
-            "Invalid parameters for createChatUserJwtToken: userId is required",
-            "INVALID_PARAMS",
-            ERROR_SUGGESTIONS.MISSING_USER_ID,
-            "userId"
-          );
-          return NextResponse.json(
-            { error: error.message, suggestions: error.suggestions, code: error.code, field: error.field },
-            { status: 400 }
-          );
-        }
-        result = { token: sdk.createChatUserJwtToken(params.userId) };
-        break;
-      }
-
-      case "createChatName": {
-        if (!isCreateChatNameParams(params)) {
-          const error = createSDKError(
-            "Invalid parameters for createChatName: chatId is required",
-            "INVALID_PARAMS",
-            ERROR_SUGGESTIONS.MISSING_chat_ID,
-            "chatId"
-          );
-          return NextResponse.json(
-            { error: error.message, suggestions: error.suggestions, code: error.code, field: error.field },
-            { status: 400 }
-          );
-        }
-        result = {
-          chatName: sdk.createChatName(
-            params.chatId,
-            params.full !== false
-          ),
-        };
-        break;
-      }
 
       case "deleteChatRoom": {
         if (!isDeleteChatRoomParams(params)) {
@@ -268,6 +219,7 @@ export async function POST(request: NextRequest) {
             { status: 400 }
           );
         }
+        (sdk as any).lastUrl = `${apiBaseUrl}/v1/chats`;
         result = await sdk.deleteChatRoom(params.chatId);
         break;
       }
@@ -284,6 +236,7 @@ export async function POST(request: NextRequest) {
             { status: 400 }
           );
         }
+        (sdk as any).lastUrl = `${apiBaseUrl}/v1/users/batch`;
         result = await sdk.deleteUsers(params.userIds);
         break;
       }
@@ -327,6 +280,12 @@ export async function POST(request: NextRequest) {
           }
         }
 
+        // Auto-prefix xmppUsername if appId is available and prefix is missing
+        if (appId && params.xmppUsername && typeof params.xmppUsername === 'string' && !params.xmppUsername.startsWith(appId)) {
+          console.log(`[SDK Proxy] Auto-prefixing xmppUsername: ${params.xmppUsername} -> ${appId}_${params.xmppUsername}`);
+          params.xmppUsername = `${appId}_${params.xmppUsername}`;
+        }
+
         // Build filter object with pagination
         const filter: any = {};
         if (params.chatName) filter.chatName = params.chatName;
@@ -336,6 +295,7 @@ export async function POST(request: NextRequest) {
 
         console.log('getUsers filter:', JSON.stringify(filter, null, 2));
 
+        (sdk as any).lastUrl = `${apiBaseUrl}/v2/chats/users`;
         result = await sdk.getUsers(
           Object.keys(filter).length > 0 ? filter : undefined
         );
@@ -422,6 +382,7 @@ export async function POST(request: NextRequest) {
         // Call SDK with files parameter if files are provided
         // The SDK backend automatically generates and sends x-custom-token header
         // using ETHORA_CHAT_APP_ID and ETHORA_CHAT_APP_SECRET from environment variables
+        (sdk as any).lastUrl = `${apiBaseUrl}/v2/chats/users`;
         if (updateUsersFileBuffers.length > 0) {
           result = await (sdk.updateUsers as any)(users, updateUsersFileBuffers);
         } else {
@@ -444,6 +405,8 @@ export async function POST(request: NextRequest) {
             { status: 400 }
           );
         }
+        (sdk as any).lastUrl = `${apiBaseUrl}/v2/chats/users-access`;
+        // In the new types, grant access and delete access use the same structure
         result = await (sdk as any).deleteUsersAccess(params.chatName, params.members);
         break;
       }
@@ -458,25 +421,37 @@ export async function POST(request: NextRequest) {
         
         // Try SDK method first, fallback to direct API call if not a function
         if (typeof (sdk as any).removeUserAccessFromChatRoom === 'function') {
+          (sdk as any).lastUrl = `${apiBaseUrl}/v2/chats/users-access`;
           result = await (sdk as any).removeUserAccessFromChatRoom(params.chatId, params.userId);
         } else {
           const baseUrl = (process.env.ETHORA_CHAT_API_URL || 'https://api.ethoradev.com').replace(/\/$/, '');
+          const appId = process.env.ETHORA_CHAT_APP_ID || '';
           const token = generateServerToken();
-          const response = await fetch(`${baseUrl}/v1/chats/users-access`, {
+          
+          const chatName = params.chatId;
+          const members = Array.isArray(params.userId) ? params.userId : [params.userId];
+
+          const endpoint = `${baseUrl}/v2/chats/users-access`;
+          (sdk as any).lastUrl = endpoint;
+          const response = await fetch(endpoint, {
             method: 'DELETE',
             headers: {
               'Content-Type': 'application/json',
               'x-custom-token': token || '',
             },
             body: JSON.stringify({
-              chatId: params.chatId,
-              userId: params.userId,
+              chatName,
+              members,
             }),
           });
           
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || `API error: ${response.status} ${response.statusText}`);
+            const err = new Error(errorData.error || `API error: ${response.status} ${response.statusText}`);
+            (err as any).status = response.status;
+            (err as any).data = errorData;
+            (err as any).url = endpoint;
+            throw err;
           }
           
           result = await response.json();
@@ -500,11 +475,15 @@ export async function POST(request: NextRequest) {
 
         // Use SDK method if available, otherwise direct API call
         if (typeof (sdk as any).sendPushToUser === 'function') {
+          (sdk as any).lastUrl = `${apiBaseUrl}/v1/push/user/${params.userId}`;
           result = await (sdk as any).sendPushToUser(params.userId, params.data);
         } else {
           const baseUrl = (process.env.ETHORA_CHAT_API_URL || 'https://api.ethoradev.com').replace(/\/$/, '');
           const token = generateServerToken();
-          const response = await fetch(`${baseUrl}/v1/push/user/${params.userId}`, {
+          const endpoint = `${baseUrl}/v1/push/user/${params.userId}`;
+          (sdk as any).lastUrl = endpoint;
+          
+          const response = await fetch(endpoint, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -515,7 +494,11 @@ export async function POST(request: NextRequest) {
           
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || `API error: ${response.status} ${response.statusText}`);
+            const err = new Error(errorData.error || `API error: ${response.status} ${response.statusText}`);
+            (err as any).status = response.status;
+            (err as any).data = errorData;
+            (err as any).url = endpoint;
+            throw err;
           }
           
           result = await response.json();
@@ -535,35 +518,56 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Return the SDK result directly as requested
+    // Return the SDK result with metadata
     const serverToken = generateServerToken();
-    const response = NextResponse.json(result);
+    
+    // Check if the result is already an object we can add to, or if we should wrap it
+    let finalResultData: any = result;
+    const requestUrl = (sdk as any).lastUrl || apiBaseUrl;
+
+    // We wrap it in a standard structure that our playground understands
+    // { result: SDK_DATA, url: URL }
+    const responsePayload = {
+      result: result,
+      url: requestUrl,
+      success: true
+    };
+
+    const response = NextResponse.json(responsePayload);
     
     if (serverToken) {
       response.headers.set('x-server-token', serverToken);
     }
     
     return response;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error executing SDK method:", error);
 
-    // If it's an Axios/SDK error with a response, return that data directly
-    if (error && typeof error === 'object' && 'response' in error) {
-      const axiosError = error as any;
-      if (axiosError.response?.data) {
-        return NextResponse.json(axiosError.response.data, {
-          status: axiosError.response.status || 500
-        });
-      }
-    }
+    // Log the full error object for server-side debugging
+    console.log("DEBUG: Catch block error structure:", {
+      message: error.message,
+      status: error.status,
+      hasResponse: !!error.response,
+      responseData: error.response?.data
+    });
 
-    // Default error response
+    // Consolidate information from SDK message and backend response
+    const sdkMessage = error instanceof Error ? error.message : "Failed to execute SDK method";
+    const responseData = error.response?.data || error.data || (error.data?.response?.data);
+    const requestUrl = error.config?.url || error.url || error.data?.url;
+
     return NextResponse.json(
       { 
-        error: error instanceof Error ? error.message : "Failed to execute SDK method",
-        details: error instanceof Error ? error.stack : undefined
+        error: sdkMessage,
+        message: sdkMessage,
+        url: requestUrl,
+        requestUrl: requestUrl,
+        responseData: responseData,
+        backendResponse: responseData,
+        status: error.response?.status || error.status || 500,
+        requestId: responseData?.requestId || error.response?.headers?.['x-request-id']
       },
-      { status: 500 }
+      { status: error.response?.status || error.status || 500 }
     );
   }
 }

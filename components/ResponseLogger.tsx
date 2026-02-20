@@ -226,12 +226,26 @@ export default function ResponseLogger({ logs, onClear }: ResponseLoggerProps) {
                     </div>
                   )}
                 </div>
-                <button
-                  onClick={() => toggleExpand(log.id)}
-                  className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded transition-colors"
-                >
-                  {isExpanded ? 'Collapse' : 'Expand'}
-                </button>
+                <div className="flex flex-col gap-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleExpand(log.id);
+                    }}
+                    className="px-2 py-1 text-[10px] uppercase font-bold bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded transition-colors"
+                  >
+                    {isExpanded ? 'Collapse' : 'Expand'}
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigator.clipboard.writeText(dataStr);
+                    }}
+                    className="px-2 py-1 text-[10px] uppercase font-bold bg-blue-100 dark:bg-blue-900/40 hover:bg-blue-200 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 rounded transition-colors"
+                  >
+                    Copy
+                  </button>
+                </div>
               </div>
             </div>
           );

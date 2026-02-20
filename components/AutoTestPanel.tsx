@@ -36,7 +36,6 @@ export default function AutoTestPanel({ onExecute }: AutoTestPanelProps) {
     const chatId = `auto-room-${timestamp}-${randomId}`;
     const email = `auto-${timestamp}@example.com`;
 
-    let appIdPrefix: string | undefined;
 
     const steps: Array<{
       id: string;
@@ -54,8 +53,8 @@ export default function AutoTestPanel({ onExecute }: AutoTestPanelProps) {
             email,
             firstName: 'Auto',
             lastName: 'Tester',
-            password: 'Qwerty123',
             displayName: 'Auto Tester',
+            password: 'Qwerty123',
           },
         }),
       },
@@ -102,23 +101,8 @@ export default function AutoTestPanel({ onExecute }: AutoTestPanelProps) {
         id: 'get-user',
         label: 'get user',
         method: 'getUsers',
-        buildParams: async () => {
-          if (!appIdPrefix) {
-            const shortNameResult = await onExecute('createChatName', {
-              chatId,
-              full: false,
-            });
-            const resolved =
-              shortNameResult?.result?.chatName ??
-              shortNameResult?.chatName ??
-              shortNameResult?.result ??
-              shortNameResult;
-            if (typeof resolved === 'string' && resolved.endsWith(`_${chatId}`)) {
-              appIdPrefix = resolved.slice(0, -(chatId.length + 1));
-            }
-          }
-          const xmppUsername = appIdPrefix ? `${appIdPrefix}_${userId}` : userId;
-          return { xmppUsername };
+        buildParams: () => {
+          return { xmppUsername: userId };
         },
       },
       {
@@ -155,6 +139,7 @@ export default function AutoTestPanel({ onExecute }: AutoTestPanelProps) {
         const response = executeResult?.result !== undefined ? executeResult.result : executeResult;
         const responseTime = Date.now() - startTime;
 
+
         setResults((prev) =>
           prev.map((item) =>
             item.id === baseResult.id
@@ -162,23 +147,20 @@ export default function AutoTestPanel({ onExecute }: AutoTestPanelProps) {
                   ...item,
                   status: 'success',
                   responseTime,
-                  response: response !== undefined ? response : null,
+                   response: executeResult !== undefined ? executeResult : null,
                 }
               : item
           )
         );
-      } catch (err) {
+        } catch (err: any) {
         const responseTime = Date.now() - startTime;
-        let errorMessage = 'Unknown error';
+        let errorData = err;
         
-        if (err instanceof Error) {
-          errorMessage = err.message;
-        } else if (typeof err === 'string') {
-          errorMessage = err;
-        } else if (err && typeof err === 'object') {
-          errorMessage = (err as any).error || (err as any).message || JSON.stringify(err);
+        // If err is a string (legacy), wrap it
+        if (typeof err === 'string') {
+          errorData = { error: err };
         }
-
+        
         setResults((prev) =>
           prev.map((item) =>
             item.id === baseResult.id
@@ -186,7 +168,8 @@ export default function AutoTestPanel({ onExecute }: AutoTestPanelProps) {
                   ...item,
                   status: 'error',
                   responseTime,
-                  error: errorMessage,
+                  error: errorData?.error || errorData?.message || (typeof errorData === 'object' ? JSON.stringify(errorData) : String(errorData)),
+                  response: errorData, // Store the full error object as response for inspection
                 }
               : item
           )
@@ -249,11 +232,21 @@ export default function AutoTestPanel({ onExecute }: AutoTestPanelProps) {
                 )}
               </div>
 
-              <details className="mt-2">
-                <summary className="text-xs text-blue-600 dark:text-blue-400 cursor-pointer">
-                  Expand
+              <details className="mt-2 text-xs">
+                <summary className="text-blue-600 dark:text-blue-400 cursor-pointer font-medium hover:underline">
+                  Expand details
                 </summary>
-                <div className="mt-2 grid gap-2">
+                <div className="mt-3 grid gap-3">
+                  {(result.response?.url || result.response?.requestUrl || result.response?.result?.url || result.response?.result?.requestUrl) && (
+                    <div className="mb-1">
+                      <div className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">
+                        URL
+                      </div>
+                      <div className="text-xs font-mono bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/20 rounded p-2 text-blue-800 dark:text-blue-300 break-all">
+                        {result.response?.url || result.response?.requestUrl || result.response?.result?.url || result.response?.result?.requestUrl}
+                      </div>
+                    </div>
+                  )}
                   <div>
                     <div className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">
                       Request
@@ -266,15 +259,18 @@ export default function AutoTestPanel({ onExecute }: AutoTestPanelProps) {
                     <div className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">
                       Response
                     </div>
-                    {result.status === 'error' ? (
-                      <div className="text-xs bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 rounded p-2 text-red-700 dark:text-red-400 font-mono">
-                        {typeof result.error === 'string' ? result.error : JSON.stringify(result.error, null, 2)}
-                      </div>
-                    ) : (
-                      <pre className="text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded p-2 overflow-x-auto whitespace-pre-wrap break-words">
-                        {JSON.stringify(result.response, null, 2)}
-                      </pre>
-                    )}
+                    <pre className={`text-xs p-2 rounded overflow-x-auto whitespace-pre-wrap break-words border font-mono ${
+                      result.status === 'error' 
+                        ? 'bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-900/30 text-red-700 dark:text-red-400' 
+                        : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-green-700 dark:text-green-400'
+                    }`}>
+                      {(() => {
+                        const data = result.response?.result || result.response?.responseData || result.response || result.error;
+                        if (!data) return 'No response';
+                        if (typeof data === 'string') return data;
+                        return JSON.stringify(data, null, 2);
+                      })()}
+                    </pre>
                   </div>
                 </div>
               </details>

@@ -331,7 +331,7 @@ getUsers().catch(console.error);`;
       'x-custom-token': xCustomToken,
     },
     body: JSON.stringify({
-      userIds: ${JSON.stringify(params.userIds, null, 6)},
+      usersIdList: ${JSON.stringify(params.userIds, null, 6)},
     }),
   });
 

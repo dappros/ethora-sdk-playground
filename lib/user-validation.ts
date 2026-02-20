@@ -14,7 +14,8 @@ export const userDataSchema = Joi.object({
   profileImage: Joi.string().optional(),
   profileImageFileIndex: Joi.number().integer().min(0).optional(),
   displayName: Joi.string().optional(),
-}).unknown(false); // Reject unknown fields
+  bypassEmailConfirmation: Joi.boolean().optional(),
+}).unknown(true); // Allow other fields to pass through
 
 // Validation for updateUsers - array of users
 // Note: email is optional for updates since the API doesn't accept it in update requests
@@ -22,16 +23,30 @@ export const userDataSchema = Joi.object({
 export const updateUsersSchema = Joi.array()
   .items(
     Joi.object({
-      email: Joi.string().email().trim().lowercase().optional(),
-      firstName: Joi.string().min(3).optional(),
+      firstName: Joi.string().min(2).optional(),
       lastName: Joi.string().min(2).optional(),
-      password: Joi.string().min(4).optional(),
-      uuid: Joi.string().trim().min(2).optional(),
+      username: Joi.string().optional(),
       profileImage: Joi.string().optional(),
-      profileImageFileIndex: Joi.number().integer().min(0).optional(),
-      displayName: Joi.string().optional(),
+      description: Joi.string().optional(),
+      token: Joi.string().optional(),
+      email: Joi.string().email().trim().lowercase().optional(),
+      appId: Joi.string().optional(),
+      homeScreen: Joi.string().optional(),
+      registrationChannelType: Joi.string().optional(),
+      updatedAt: Joi.string().optional(),
+      authMethod: Joi.string().optional(),
+      resetPasswordExpires: Joi.string().optional(),
+      resetPasswordToken: Joi.string().optional(),
+      roles: Joi.array().items(Joi.string()).optional(),
+      tags: Joi.array().items(Joi.string()).optional(),
+      __v: Joi.number().optional(),
+      isProfileOpen: Joi.boolean().optional(),
+      isAssetsOpen: Joi.boolean().optional(),
+      isAgreeWithTerms: Joi.boolean().optional(),
+      bypassEmailConfirmation: Joi.boolean().optional(),
       xmppUsername: Joi.string().optional(),
-    }).unknown(false)
+      userId: Joi.string().optional(),
+    }).unknown(true)
   )
   .min(1)
   .max(100);

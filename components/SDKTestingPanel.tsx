@@ -21,6 +21,24 @@ interface APIError {
   code?: string;
   field?: string;
   details?: string;
+  url?: string;
+  requestUrl?: string;
+}
+
+interface SDKParam {
+  key: string;
+  label: string;
+  type: string;
+  required: boolean;
+  defaultValue?: any;
+  placeholder?: string;
+}
+
+interface SDKMethod {
+  id: string;
+  name: string;
+  description: string;
+  params: SDKParam[];
 }
 
 interface MethodForm {
@@ -28,14 +46,14 @@ interface MethodForm {
   params: Record<string, any>;
 }
 
-const SDK_METHODS = [
+const SDK_METHODS: SDKMethod[] = [
   {
     id: 'createChatRoom',
     name: 'Create Chat Room',
     description: 'Create a chat room for a chat',
     params: [
-      { key: 'chatId', label: 'chat ID', type: 'text', required: true },
-      { key: 'title', label: 'Title', type: 'text', required: false },
+      { key: 'chatId', label: 'chat ID', type: 'text', required: true, defaultValue: 'test-room-' + Math.random().toString(36).substring(7) },
+      { key: 'title', label: 'Title', type: 'text', required: false, defaultValue: 'Project Team Alpha' },
       { key: 'type', label: 'Type', type: 'text', required: false, defaultValue: 'group' },
     ],
   },
@@ -44,15 +62,14 @@ const SDK_METHODS = [
     name: 'Create User',
     description: 'Create a user in the chat service',
     params: [
-      { key: 'userId', label: 'User ID', type: 'text', required: true },
-      { key: 'email', label: 'Email', type: 'email', required: true },
-      { key: 'firstName', label: 'First Name', type: 'text', required: true },
-      { key: 'lastName', label: 'Last Name', type: 'text', required: true },
-      { key: 'password', label: 'Password', type: 'text', required: false },
+      { key: 'userId', label: 'User ID', type: 'text', required: true, defaultValue: 'user-' + Math.random().toString(36).substring(7) },
+      { key: 'email', label: 'Email', type: 'email', required: true, defaultValue: 'test-user@example.com' },
+      { key: 'firstName', label: 'First Name', type: 'text', required: true, defaultValue: 'Test' },
+      { key: 'lastName', label: 'Last Name', type: 'text', required: true, defaultValue: 'User' },
+      { key: 'password', label: 'Password', type: 'text', required: false, defaultValue: 'password123' },
       { key: 'uuid', label: 'UUID', type: 'text', required: false },
       { key: 'profileImage', label: 'Profile Image URL', type: 'text', required: false },
-      { key: 'profileImageFileIndex', label: 'Profile Image File Index', type: 'number', required: false },
-      { key: 'displayName', label: 'Display Name', type: 'text', required: false },
+      { key: 'displayName', label: 'Display Name', type: 'text', required: false, defaultValue: 'Tester' },
     ],
   },
   {
@@ -60,41 +77,17 @@ const SDK_METHODS = [
     name: 'Grant User Access',
     description: 'Grant a user access to a chat room',
     params: [
-      { key: 'chatId', label: 'chat ID', type: 'text', required: true },
-      { key: 'userId', label: 'User ID', type: 'text', required: true },
+      { key: 'chatId', label: 'chat ID', type: 'text', required: true, defaultValue: 'test-room-1' },
+      { key: 'userId', label: 'User ID', type: 'text', required: true, defaultValue: 'user-1' },
     ],
   },
-  {
-    id: 'grantChatbotAccessToChatRoom',
-    name: 'Grant Chatbot Access',
-    description: 'Grant chatbot access to a chat room',
-    params: [
-      { key: 'chatId', label: 'chat ID', type: 'text', required: true },
-    ],
-  },
-  {
-    id: 'createChatUserJwtToken',
-    name: 'Create JWT Token',
-    description: 'Generate a client JWT token for a user',
-    params: [
-      { key: 'userId', label: 'User ID', type: 'text', required: true },
-    ],
-  },
-  {
-    id: 'createChatName',
-    name: 'Create Chat Name',
-    description: 'Generate a chat room JID from chat ID',
-    params: [
-      { key: 'chatId', label: 'chat ID', type: 'text', required: true },
-      { key: 'full', label: 'Full JID', type: 'checkbox', required: false, defaultValue: true },
-    ],
-  },
+
   {
     id: 'deleteChatRoom',
     name: 'Delete Chat Room',
     description: 'Delete a chat room by chat ID',
     params: [
-      { key: 'chatId', label: 'chat ID', type: 'text', required: true },
+      { key: 'chatId', label: 'chat ID', type: 'text', required: true, defaultValue: 'test-room-1' },
     ],
   },
   {
@@ -102,7 +95,7 @@ const SDK_METHODS = [
     name: 'Delete Users',
     description: 'Delete multiple users',
     params: [
-      { key: 'userIds', label: 'User IDs (comma-separated)', type: 'text', required: true },
+      { key: 'userIds', label: 'User IDs (comma-separated)', type: 'text', required: true, defaultValue: 'user-1,user-2' },
     ],
   },
   {
@@ -110,10 +103,8 @@ const SDK_METHODS = [
     name: 'Get Users',
     description: 'Get users from the chat service',
     params: [
-      { key: 'chatName', label: 'Chat Name (optional)', type: 'text', required: false },
-      { key: 'xmppUsername', label: 'XMPP Username (optional)', type: 'text', required: false },
-      { key: 'page', label: 'Page (optional)', type: 'number', required: false },
-      { key: 'pageSize', label: 'Page Size (optional, max 500, default 100)', type: 'number', required: false },
+      { key: 'chatName', label: 'Chat Name (optional)', type: 'text', required: false, placeholder: 'appId_chatId' },
+      { key: 'xmppUsername', label: 'XMPP Username (optional)', type: 'text', required: false, placeholder: 'appId_userId' },
     ],
   },
   {
@@ -121,7 +112,13 @@ const SDK_METHODS = [
     name: 'Update Users',
     description: 'Update multiple users (batch)',
     params: [
-      { key: 'users', label: 'Users JSON Array', type: 'textarea', required: true },
+      {
+        key: 'users',
+        label: 'Users JSON Array',
+        type: 'textarea',
+        required: true,
+        defaultValue: '[\n  {\n    "xmppUsername": "user-1",\n    "firstName": "John Updated"\n  }\n]',
+      },
     ],
   },
   {
@@ -135,18 +132,31 @@ const SDK_METHODS = [
   },
   {
     id: 'sendPushToUser',
-    name: 'Send Push to User',
-    description: 'Send a push notification to a specific user',
+    name: 'Send Push Notification',
+    description: 'Send a push notification to a user',
     params: [
-      { key: 'userId', label: 'User ID', type: 'text', required: true },
-      { key: 'data', label: 'Push Data JSON', type: 'textarea', required: true },
+      { key: 'userId', label: 'User ID', type: 'text', required: true, defaultValue: 'user-1' },
+      {
+        key: 'data',
+        label: 'Notification Data (JSON)',
+        type: 'textarea',
+        required: true,
+        defaultValue: '{\n  "title": "Hello",\n  "body": "This is a test notification",\n  "data": {\n    "key": "value"\n  }\n}',
+      },
     ],
   },
 ];
 
 export default function SDKTestingPanel({ onExecute, token, baseUrl }: SDKTestingPanelProps) {
   const [selectedMethod, setSelectedMethod] = useState<SDKMethodName>(SDK_METHODS[0].id as SDKMethodName);
-  const [formData, setFormData] = useState<Record<string, any>>({});
+  
+  // Initialize with the first method's defaults
+  const initialFormData = SDK_METHODS[0].params.reduce((acc, param) => {
+    if (param.defaultValue !== undefined) acc[param.key] = param.defaultValue;
+    return acc;
+  }, {} as Record<string, any>);
+
+  const [formData, setFormData] = useState<Record<string, any>>(initialFormData);
   const [files, setFiles] = useState<File[]>([]);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<APIError | null>(null);
@@ -162,8 +172,16 @@ export default function SDKTestingPanel({ onExecute, token, baseUrl }: SDKTestin
   const currentMethod = SDK_METHODS.find((m) => m.id === selectedMethod);
 
   const handleMethodChange = (methodId: string) => {
+    const nextMethod = SDK_METHODS.find(m => m.id === methodId);
     setSelectedMethod(methodId as SDKMethodName);
-    setFormData({});
+    
+    // Auto-populate with defaults
+    const defaults: Record<string, any> = {};
+    nextMethod?.params.forEach(p => {
+      if (p.defaultValue !== undefined) defaults[p.key] = p.defaultValue;
+    });
+
+    setFormData(defaults);
     setFiles([]);
     setResult(null);
     setError(null);
@@ -232,11 +250,13 @@ export default function SDKTestingPanel({ onExecute, token, baseUrl }: SDKTestin
               email: `user1-${timestamp}@example.com`,
               firstName: 'John',
               lastName: 'Doe',
+              displayName: 'John Doe',
             },
             {
               email: `user2-${timestamp}@example.com`,
               firstName: 'Jane',
               lastName: 'Smith',
+              displayName: 'Jane Smith',
             },
           ],
           null,
@@ -402,15 +422,6 @@ export default function SDKTestingPanel({ onExecute, token, baseUrl }: SDKTestin
           params.pageSize = pageSizeNum;
         }
         console.log('getUsers params before send:', JSON.stringify(params, null, 2));
-      } else if (selectedMethod === 'createChatName') {
-        params = {
-          chatId: formData.chatId,
-          full: formData.full !== undefined ? formData.full : true,
-        };
-      } else if (selectedMethod === 'createChatUserJwtToken') {
-        params = { userId: formData.userId };
-      } else if (selectedMethod === 'grantChatbotAccessToChatRoom') {
-        params = { chatId: formData.chatId };
       } else if (selectedMethod === 'grantUserAccessToChatRoom') {
         params = {
           chatId: formData.chatId,
@@ -464,7 +475,7 @@ export default function SDKTestingPanel({ onExecute, token, baseUrl }: SDKTestin
       // Add placeholder for x-custom-token for server-to-server methods
       // The actual token will be updated after the request completes
       if (['updateUsers', 'createUser', 'getUsers', 'deleteUsers', 'createChatRoom', 'removeUserAccessFromChatRoom',
-           'deleteChatRoom', 'grantUserAccessToChatRoom', 'grantChatbotAccessToChatRoom', 'sendPushToUser'].includes(selectedMethod)) {
+           'deleteChatRoom', 'grantUserAccessToChatRoom', 'sendPushToUser'].includes(selectedMethod)) {
         headers['x-custom-token'] = 'Generating...';
       }
 
@@ -562,6 +573,8 @@ export default function SDKTestingPanel({ onExecute, token, baseUrl }: SDKTestin
           code?: string;
           field?: string;
           details?: string;
+          url?: string;
+          requestUrl?: string;
         };
         displayError = {
           error: errorWithExtras.message,
@@ -569,6 +582,8 @@ export default function SDKTestingPanel({ onExecute, token, baseUrl }: SDKTestin
           code: errorWithExtras.code,
           field: errorWithExtras.field,
           details: errorWithExtras.details,
+          url: errorWithExtras.url,
+          requestUrl: errorWithExtras.requestUrl,
         };
       } else if (err && typeof err === 'object') {
         const errObj = err as any;
@@ -578,6 +593,8 @@ export default function SDKTestingPanel({ onExecute, token, baseUrl }: SDKTestin
           code: errObj.code,
           field: errObj.field,
           details: typeof errObj.details === 'object' ? JSON.stringify(errObj.details, null, 2) : errObj.details,
+          url: errObj.url,
+          requestUrl: errObj.requestUrl,
         };
       } else {
         displayError = {
@@ -608,15 +625,6 @@ export default function SDKTestingPanel({ onExecute, token, baseUrl }: SDKTestin
           errorParams = {};
           if (formData.chatName) errorParams.chatName = formData.chatName;
           if (formData.xmppUsername) errorParams.xmppUsername = formData.xmppUsername;
-        } else if (selectedMethod === 'createChatName') {
-          errorParams = {
-            chatId: formData.chatId,
-            full: formData.full !== undefined ? formData.full : true,
-          };
-        } else if (selectedMethod === 'createChatUserJwtToken') {
-          errorParams = { userId: formData.userId };
-        } else if (selectedMethod === 'grantChatbotAccessToChatRoom') {
-          errorParams = { chatId: formData.chatId };
         } else if (selectedMethod === 'grantUserAccessToChatRoom') {
           errorParams = {
             chatId: formData.chatId,
@@ -726,15 +734,6 @@ export default function SDKTestingPanel({ onExecute, token, baseUrl }: SDKTestin
           const pageSizeNum = Number(formData.pageSize);
           params.pageSize = pageSizeNum;
         }
-      } else if (selectedMethod === 'createChatName') {
-        params = {
-          chatId: formData.chatId,
-          full: formData.full !== undefined ? formData.full : true,
-        };
-      } else if (selectedMethod === 'createChatUserJwtToken') {
-        params = { userId: formData.userId };
-      } else if (selectedMethod === 'grantChatbotAccessToChatRoom') {
-        params = { chatId: formData.chatId };
       } else if (selectedMethod === 'grantUserAccessToChatRoom') {
         params = {
           chatId: formData.chatId,
@@ -1120,6 +1119,11 @@ export default function SDKTestingPanel({ onExecute, token, baseUrl }: SDKTestin
               ×
             </button>
           </div>
+          {(error.url || error.requestUrl) && (
+            <div className="mb-3 p-1.5 bg-red-100/50 dark:bg-red-900/30 rounded border border-red-200/50 dark:border-red-800/50 text-[10px] font-mono break-all text-red-800 dark:text-red-300">
+              <span className="font-bold mr-1 uppercase">URL:</span> {error.url || error.requestUrl}
+            </div>
+          )}
           <p className="text-red-600 dark:text-red-300 text-sm mb-3">{error.error}</p>
           {error.code && (
             <p className="text-xs text-red-500 dark:text-red-400 mb-3">
@@ -1155,16 +1159,23 @@ export default function SDKTestingPanel({ onExecute, token, baseUrl }: SDKTestin
         <div className="mt-6">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-gray-800 dark:text-gray-200 font-semibold">Result</h3>
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(JSON.stringify(result, null, 2));
-              }}
-              className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded"
-            >
-              Copy
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(JSON.stringify(result, null, 2));
+                }}
+                className="text-[10px] px-2 py-0.5 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded font-medium border border-gray-200 dark:border-gray-700 uppercase"
+              >
+                Copy
+              </button>
+            </div>
           </div>
-          <pre className="p-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-x-auto text-xs font-mono">
+          {(result.url || result.requestUrl) && (
+            <div className="mb-2 p-1.5 bg-blue-50 dark:bg-blue-900/10 rounded border border-blue-100 dark:border-blue-900/20 text-[10px] font-mono break-all text-blue-700 dark:text-blue-400 uppercase">
+              <span className="font-bold mr-1">URL:</span> {result.url || result.requestUrl}
+            </div>
+          )}
+          <pre className="p-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-x-auto text-xs font-mono text-green-700 dark:text-green-400">
             {JSON.stringify(result, null, 2)}
           </pre>
         </div>
