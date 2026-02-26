@@ -46,3 +46,23 @@ export async function POST(request: NextRequest) {
   }
 }
 
+export async function GET() {
+  try {
+    const { generateServerToken } = require('@/lib/sdk');
+    const token = generateServerToken();
+    
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Failed to generate server token. Check SDK configuration.' },
+        { status: 500 }
+      );
+    }
+    
+    return NextResponse.json({ token });
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || 'Failed to generate server token' },
+      { status: 500 }
+    );
+  }
+}

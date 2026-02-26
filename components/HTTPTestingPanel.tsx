@@ -102,6 +102,19 @@ const HTTP_METHODS: HTTPMethod[] = [
       { key: 'name', label: 'Chat Name (appId_chatId)', type: 'text', required: true, placeholder: '698653aafcc..._room-1' },
     ],
   },
+  {
+    id: 'updateChatMeta',
+    name: 'Update Chat Metadata (v1)',
+    path: '/v1/chats/meta',
+    method: 'PATCH',
+    description: 'Change the data of the chat. This method uses x-custom-token generation.',
+    params: [
+      { key: 'chatJid', label: 'Chat JID', type: 'text', required: false },
+      { key: 'title', label: 'Title', type: 'text', required: false },
+      { key: 'description', label: 'Description', type: 'text', required: false },
+      { key: 'metaJson', label: 'Additional Metadata JSON', type: 'textarea', required: false, defaultValue: '{}' },
+    ],
+  },
 ];
 
 export default function HTTPTestingPanel() {
@@ -171,6 +184,28 @@ export default function HTTPTestingPanel() {
           name: getValue('name'),
         };
         break;
+      case 'updateChatMeta':
+        try {
+          const metaJsonStr = getValue('metaJson') || '{}';
+          const metaData = JSON.parse(metaJsonStr);
+          
+          // Merge specific fields into metadata
+          const title = getValue('title');
+          const description = getValue('description');
+          const chatJid = getValue('chatJid');
+          
+          if (title) metaData.title = title;
+          if (description) metaData.description = description;
+          if (chatJid) metaData.chatJid = chatJid;
+
+          payload = { 
+            name: getValue('name'),
+            data: metaData
+          };
+        } catch {
+          payload = { error: 'Invalid JSON in Metadata' };
+        }
+        break;
       default:
         // For any unknown methods, merge all defaults
         currentMethod.params.forEach(p => {
@@ -210,6 +245,20 @@ export default function HTTPTestingPanel() {
         'Content-Type': 'application/json',
       },
     };
+
+    if (currentMethod.id === 'updateChatMeta') {
+      try {
+        const tokenRes = await fetch('/api/token');
+        if (tokenRes.ok) {
+          const { token } = await tokenRes.json();
+          if (token) {
+            (options.headers as any)['x-custom-token'] = token;
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch x-custom-token:', err);
+      }
+    }
 
     let finalPayload: any = null;
     if (currentMethod.method !== 'GET') {
