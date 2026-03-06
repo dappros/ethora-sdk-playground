@@ -285,8 +285,13 @@ export const defaultSettings: PlaygroundSettings = {
   qrUrl: typeof process !== 'undefined' && process.env.NEXT_PUBLIC_ETHORA_CHAT_QR_URL
     ? process.env.NEXT_PUBLIC_ETHORA_CHAT_QR_URL
     : 'https://app.ethoradev.com/app/chat/?qrChatId=',
-  xmppDevServer: typeof process !== 'undefined' && (process.env.NEXT_PUBLIC_ETHORA_XMPP_DEV_SERVER || process.env.ETHORA_XMPP_DEV_SERVER)
-    ? (process.env.NEXT_PUBLIC_ETHORA_XMPP_DEV_SERVER || process.env.ETHORA_XMPP_DEV_SERVER) as string
+  xmppDevServer: typeof process !== 'undefined' && (
+    process.env.NEXT_PUBLIC_ETHORA_CHAT_URL ||
+    process.env.ETHORA_CHAT_URL ||
+    process.env.NEXT_PUBLIC_ETHORA_XMPP_DEV_SERVER ||
+    process.env.ETHORA_XMPP_DEV_SERVER
+  )
+    ? (process.env.NEXT_PUBLIC_ETHORA_CHAT_URL || process.env.ETHORA_CHAT_URL || process.env.NEXT_PUBLIC_ETHORA_XMPP_DEV_SERVER || process.env.ETHORA_XMPP_DEV_SERVER) as string
     : 'wss://xmpp.ethoradev.com:5443/ws',
   xmppHost: typeof process !== 'undefined' && (process.env.NEXT_PUBLIC_ETHORA_XMPP_HOST || process.env.ETHORA_XMPP_HOST)
     ? (process.env.NEXT_PUBLIC_ETHORA_XMPP_HOST || process.env.ETHORA_XMPP_HOST) as string
