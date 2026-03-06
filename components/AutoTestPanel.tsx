@@ -59,6 +59,20 @@ export default function AutoTestPanel({ onExecute }: AutoTestPanelProps) {
         }),
       },
       {
+        id: 'update-user',
+        label: 'update user',
+        method: 'updateUsers',
+        buildParams: () => ({
+          users: [
+            {
+              userId, // This is used by the route-handler to find the xmppUsername
+              firstName: 'Updated Auto',
+              lastName: 'Tester',
+            },
+          ],
+        }),
+      },
+      {
         id: 'create-room',
         label: 'create room',
         method: 'createChatRoom',
@@ -72,6 +86,18 @@ export default function AutoTestPanel({ onExecute }: AutoTestPanelProps) {
         }),
       },
       {
+        id: 'update-room',
+        label: 'update room',
+        method: 'updateChatRoom',
+        buildParams: () => ({
+          chatId,
+          updateData: {
+            title: `Updated Auto Room ${timestamp}`,
+            description: 'Updated via auto-test',
+          },
+        }),
+      },
+      {
         id: 'add-user',
         label: 'add user',
         method: 'grantUserAccessToChatRoom',
@@ -79,6 +105,33 @@ export default function AutoTestPanel({ onExecute }: AutoTestPanelProps) {
           chatId,
           userId,
         }),
+      },
+      {
+        id: 'get-user-chats',
+        label: 'get user chats',
+        method: 'getUserChats',
+        buildParams: () => ({
+          userId,
+          params: {
+            limit: 10,
+            offset: 0,
+            includeMembers: true,
+          },
+        }),
+      },
+      {
+        id: 'get-user',
+        label: 'get user',
+        method: 'getUsers',
+        buildParams: () => {
+          return { xmppUsername: userId };
+        },
+      },
+      {
+        id: 'get-users',
+        label: 'get users',
+        method: 'getUsers',
+        buildParams: () => ({}),
       },
       {
         id: 'remove-user',
@@ -98,20 +151,6 @@ export default function AutoTestPanel({ onExecute }: AutoTestPanelProps) {
         }),
       },
       {
-        id: 'get-user',
-        label: 'get user',
-        method: 'getUsers',
-        buildParams: () => {
-          return { xmppUsername: userId };
-        },
-      },
-      {
-        id: 'get-users',
-        label: 'get users',
-        method: 'getUsers',
-        buildParams: () => ({}),
-      },
-      {
         id: 'delete-user',
         label: 'delete user',
         method: 'deleteUsers',
@@ -121,7 +160,13 @@ export default function AutoTestPanel({ onExecute }: AutoTestPanelProps) {
       },
     ];
 
+    const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
     for (const step of steps) {
+      // Add a small delay between steps for backend propagation
+      if (steps.indexOf(step) > 0) {
+        await sleep(5000);
+      }
       const params = await step.buildParams();
       const startTime = Date.now();
       const baseResult: AutoTestResult = {
@@ -201,7 +246,7 @@ export default function AutoTestPanel({ onExecute }: AutoTestPanelProps) {
           </button>
         </div>
         <div className="text-xs text-gray-500 dark:text-gray-400">
-          Flow: create user → create room → add user → remove user → delete room → get user → get users → delete user
+          Flow: user → update user → room → update room → access → chats → lookup → delete
         </div>
       </div>
 

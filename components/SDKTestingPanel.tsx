@@ -145,6 +145,35 @@ const SDK_METHODS: SDKMethod[] = [
       },
     ],
   },
+  {
+    id: 'updateChatRoom',
+    name: 'Update Chat Room',
+    description: 'Update metadata for an existing room',
+    params: [
+      { key: 'chatId', label: 'Chat ID', type: 'text', required: true, defaultValue: 'test-room-1' },
+      { key: 'title', label: 'New Title', type: 'text', required: false, defaultValue: 'Updated Project Team' },
+      { key: 'description', label: 'New Description', type: 'text', required: false, defaultValue: 'Revised description for the team.' },
+    ],
+  },
+  {
+    id: 'getUserChats',
+    name: 'Get User Chats',
+    description: 'Retrieve all rooms a user belongs to',
+    params: [
+      { key: 'userId', label: 'User ID', type: 'text', required: true, defaultValue: 'user-1' },
+      { key: 'limit', label: 'Limit', type: 'number', required: false, defaultValue: 50 },
+      { key: 'offset', label: 'Offset', type: 'number', required: false, defaultValue: 0 },
+      { key: 'includeMembers', label: 'Include Members', type: 'checkbox', required: false, defaultValue: true },
+    ],
+  },
+  {
+    id: 'grantChatbotAccessToChatRoom',
+    name: 'Grant Chatbot Access',
+    description: 'Grant chatbot access to a chat room',
+    params: [
+      { key: 'chatId', label: 'Chat ID', type: 'text', required: true, defaultValue: 'test-room-1' },
+    ],
+  },
 ];
 
 export default function SDKTestingPanel({ onExecute, token, baseUrl }: SDKTestingPanelProps) {
@@ -278,6 +307,17 @@ export default function SDKTestingPanel({ onExecute, token, baseUrl }: SDKTestin
           null,
           2
         );
+      } else if (param.key === 'limit') {
+        generated[param.key] = 50;
+      } else if (param.key === 'offset') {
+        generated[param.key] = 0;
+      } else if (param.key === 'includeMembers') {
+        generated[param.key] = true;
+      } else if (param.key === 'updateData') {
+        generated[param.key] = {
+          title: 'Updated Title',
+          description: 'Updated Description',
+        };
       }
     });
 
@@ -464,6 +504,27 @@ export default function SDKTestingPanel({ onExecute, token, baseUrl }: SDKTestin
         params = {
           userId: formData.userId,
           data: JSON.parse(formData.data || '{}'),
+        };
+      } else if (selectedMethod === 'updateChatRoom') {
+        params = {
+          chatId: formData.chatId,
+          updateData: {
+            ...(formData.title && { title: formData.title }),
+            ...(formData.description && { description: formData.description }),
+          },
+        };
+      } else if (selectedMethod === 'getUserChats') {
+        params = {
+          userId: formData.userId,
+          params: {
+            limit: formData.limit ? Number(formData.limit) : 50,
+            offset: formData.offset ? Number(formData.offset) : 0,
+            includeMembers: !!formData.includeMembers,
+          },
+        };
+      } else if (selectedMethod === 'grantChatbotAccessToChatRoom') {
+        params = {
+          chatId: formData.chatId,
         };
       }
 
@@ -776,6 +837,27 @@ export default function SDKTestingPanel({ onExecute, token, baseUrl }: SDKTestin
         params = {
           userId: formData.userId,
           data: JSON.parse(formData.data || '{}'),
+        };
+      } else if (selectedMethod === 'updateChatRoom') {
+        params = {
+          chatId: formData.chatId,
+          updateData: {
+            ...(formData.title && { title: formData.title }),
+            ...(formData.description && { description: formData.description }),
+          },
+        };
+      } else if (selectedMethod === 'getUserChats') {
+        params = {
+          userId: formData.userId,
+          params: {
+            limit: formData.limit ? Number(formData.limit) : 50,
+            offset: formData.offset ? Number(formData.offset) : 0,
+            includeMembers: !!formData.includeMembers,
+          },
+        };
+      } else if (selectedMethod === 'grantChatbotAccessToChatRoom') {
+        params = {
+          chatId: formData.chatId,
         };
       } else {
         params = formData;

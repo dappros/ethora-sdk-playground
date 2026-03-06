@@ -115,11 +115,38 @@ const HTTP_METHODS: HTTPMethod[] = [
       { key: 'metaJson', label: 'Additional Metadata JSON', type: 'textarea', required: false, defaultValue: '{}' },
     ],
   },
+  {
+    id: 'updateChatRoom',
+    name: 'Update Chat Room (v2)',
+    path: '/v2/apps/{appId}/chats/{chatId}',
+    method: 'PATCH',
+    description: 'Update metadata for a chat room.',
+    params: [
+      { key: 'chatId', label: 'Chat ID', type: 'text', required: true, defaultValue: 'test-room-1' },
+      { key: 'title', label: 'Room Title', type: 'text', required: false, defaultValue: 'Updated Team Chat' },
+      { key: 'description', label: 'Description', type: 'text', required: false, defaultValue: 'Revised description' },
+    ],
+  },
+  {
+    id: 'getUserChats',
+    name: 'Get User Chats (v2)',
+    path: '/v2/apps/{appId}/users/{userId}/chats',
+    method: 'GET',
+    description: 'Get all chats for a user.',
+    params: [
+      { key: 'userId', label: 'User ID', type: 'text', required: true, defaultValue: 'user-1' },
+      { key: 'limit', label: 'Limit', type: 'number', required: false, defaultValue: '50' },
+      { key: 'offset', label: 'Offset', type: 'number', required: false, defaultValue: '0' },
+    ],
+  },
 ];
 
 export default function HTTPTestingPanel() {
   const [selectedMethodId, setSelectedMethodId] = useState(HTTP_METHODS[0].id);
   const [formData, setFormData] = useState<Record<string, any>>({});
+  const [customUrl, setCustomUrl] = useState<string>('');
+  const [useCustomUrl, setUseCustomUrl] = useState<boolean>(false);
+  const [appId, setAppId] = useState<string>(process.env.NEXT_PUBLIC_ETHORA_CHAT_APP_ID || '');
   const [loading, setLoading] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [result, setResult] = useState<any>(null);
@@ -206,6 +233,15 @@ export default function HTTPTestingPanel() {
           payload = { error: 'Invalid JSON in Metadata' };
         }
         break;
+      case 'updateChatRoom':
+        payload = {
+          title: getValue('title'),
+          description: getValue('description'),
+        };
+        break;
+      case 'getUserChats':
+        payload = null;
+        break;
       default:
         // For any unknown methods, merge all defaults
         currentMethod.params.forEach(p => {
@@ -215,6 +251,27 @@ export default function HTTPTestingPanel() {
     }
     return payload;
   }, [currentMethod, formData]);
+
+  const getFullUrl = useCallback(() => {
+    if (useCustomUrl && customUrl) return customUrl;
+    
+    let path = currentMethod.path;
+    const currentAppId = appId || 'APP_ID';
+
+    // Replace placeholders
+    path = path.replace('{appId}', currentAppId);
+    
+    // Replace other parameters in path
+    currentMethod.params.forEach(p => {
+      if (path.includes(`{${p.key}}`)) {
+        const val = formData[p.key] !== undefined ? formData[p.key] : p.defaultValue;
+        path = path.replace(`{${p.key}}`, val || `{${p.key}}`);
+      }
+    });
+
+    const base = (process.env.NEXT_PUBLIC_ETHORA_CHAT_API_URL || 'https://api.ethoradev.com').replace(/\/$/, '');
+    return `${base}${path}`;
+  }, [currentMethod, formData, appId, useCustomUrl, customUrl]);
 
   useEffect(() => {
       const payload = getPayload();
@@ -235,9 +292,7 @@ export default function HTTPTestingPanel() {
     setResult(null);
     setResponseTime(null);
     const startTime = Date.now();
-
-    const baseUrl = (process.env.NEXT_PUBLIC_ETHORA_CHAT_API_URL || 'https://api.ethoradev.com').replace(/\/$/, '');
-    let url = `${baseUrl}${currentMethod.path}`;
+    const url = getFullUrl();
     
     let options: RequestInit = {
       method: currentMethod.method,
@@ -278,13 +333,14 @@ export default function HTTPTestingPanel() {
     } else {
       const queryParams = new URLSearchParams();
       Object.entries(formData).forEach(([key, value]) => {
-        if (value !== undefined && value !== '') {
+        // Only add to query params if not part of the path
+        if (value !== undefined && value !== '' && !currentMethod.path.includes(`{${key}}`)) {
           queryParams.append(key, String(value));
         }
       });
       const queryString = queryParams.toString();
-      if (queryString) {
-        url += `?${queryString}`;
+      if (queryString && !url.includes('?')) {
+        options.body = null; // Ensure no body for GET
       }
     }
 

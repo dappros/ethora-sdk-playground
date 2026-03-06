@@ -121,6 +121,23 @@ export interface GetUsersQueryParams {
 }
 
 /**
+ * Get user chats query parameters
+ */
+export interface GetUserChatsQueryParams {
+  limit?: number;
+  offset?: number;
+  includeMembers?: boolean;
+}
+
+/**
+ * Update chat room request payload
+ */
+export interface UpdateChatRoomData {
+  title?: string;
+  description?: string;
+}
+
+/**
  * Chat repository interface
  */
 export interface ChatRepository {
@@ -198,6 +215,29 @@ export interface ChatRepository {
    * @returns The API response
    */
   getUsers(params?: GetUsersQueryParams): Promise<ApiResponse>;
+
+  /**
+   * Retrieves all rooms a user belongs to
+   *
+   * @param userId - The unique identifier of the user
+   * @param params - Query parameters for pagination and members
+   */
+  getUserChats(userId: UUID, params?: GetUserChatsQueryParams): Promise<ApiResponse>;
+
+  /**
+   * Updates metadata for an existing room
+   *
+   * @param chatId - The unique identifier of the chat
+   * @param updateData - The metadata to update (title, description)
+   */
+  updateChatRoom(chatId: UUID, updateData: UpdateChatRoomData): Promise<ApiResponse>;
+
+  /**
+   * Grants chatbot access to a chat room
+   *
+   * @param chatId - The unique identifier of the chat/workspace
+   */
+  grantChatbotAccessToChatRoom(chatId: UUID): Promise<ApiResponse>;
 }
 
 // Internal Playground Types (to maintain compatibility with route and components)
@@ -262,6 +302,16 @@ export interface SendPushToUserParams {
   data: Record<string, any>;
 }
 
+export interface UpdateChatRoomParams {
+  chatId: string;
+  updateData: UpdateChatRoomData;
+}
+
+export interface GetUserChatsParams {
+  userId: string;
+  params?: GetUserChatsQueryParams;
+}
+
 export type SDKMethodName =
   | 'createChatRoom'
   | 'createUser'
@@ -272,8 +322,10 @@ export type SDKMethodName =
   | 'updateUsers'
   | 'removeUserAccessFromChatRoom'
   | 'deleteUsersAccess'
-  | 'sendPushToUser';
-
+  | 'sendPushToUser'
+  | 'updateChatRoom'
+  | 'getUserChats'
+  | 'grantChatbotAccessToChatRoom';
 // Helper to keep guards working with minimal changes in route.ts
 export function isCreateChatRoomParams(params: any): params is CreateChatRoomParams {
   return params && typeof params.chatId === 'string' && params.roomData && typeof params.roomData.uuid === 'string';
@@ -317,6 +369,18 @@ export function isRemoveUserAccessFromChatRoomParams(params: any): params is Rem
 
 export function isSendPushToUserParams(params: any): params is SendPushToUserParams {
   return params && typeof params.userId === 'string' && params.data;
+}
+
+export function isUpdateChatRoomParams(params: any): params is UpdateChatRoomParams {
+  return params && typeof params.chatId === 'string' && params.updateData;
+}
+
+export function isGetUserChatsParams(params: any): params is GetUserChatsParams {
+  return params && typeof params.userId === 'string';
+}
+
+export function isGrantChatbotAccessParams(params: any): params is { chatId: string } {
+  return params && typeof params.chatId === 'string';
 }
 
 export function createSDKError(message: string, code?: string, suggestions?: string[], field?: string) {

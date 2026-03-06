@@ -27,6 +27,9 @@ import {
   isDeleteUsersParams,
   isGetUsersParams,
   isUpdateUsersParams,
+  isUpdateChatRoomParams,
+  isGetUserChatsParams,
+  isGrantChatbotAccessParams,
   isDeleteUsersAccessParams,
   isRemoveUserAccessFromChatRoomParams,
   isSendPushToUserParams,
@@ -174,12 +177,48 @@ export async function POST(request: NextRequest) {
         if (createUserFileBuffers.length > 0) {
           result = await (sdk.createUser as any)(params.userId, userData, createUserFileBuffers);
         } else {
-          // Adjust lastName if missing to meet API requirements (min 2 chars)
+          // Prepare user object for API
           if (!userData.lastName || (userData.lastName as string).length < 2) {
             userData.lastName = (userData.lastName as string) || 'User';
           }
+
+          // Use SDK if it correctly handles createUser, else fallback to direct API
           (sdk as any).lastUrl = `${apiBaseUrl}/v2/users/batch`;
-          result = await sdk.createUser(params.userId, userData as Record<string, unknown>);
+          const userObj = {
+            uuid: params.userId,
+            email: userData.email || `${params.userId}@example.com`,
+            firstName: userData.firstName || 'User',
+            lastName: userData.lastName || 'User',
+            password: userData.password || `password_${params.userId}`,
+            ...Object.fromEntries(
+              Object.entries(userData).filter(
+                ([key]) => !['email', 'firstName', 'lastName', 'password', 'uuid', 'displayName', 'role'].includes(key)
+              )
+            ),
+          };
+
+          const baseUrl = (process.env.ETHORA_CHAT_API_URL || 'https://api.ethoradev.com').replace(/\/$/, '');
+          const token = generateServerToken();
+          const endpoint = `${baseUrl}/v2/users/batch`;
+          (sdk as any).lastUrl = endpoint;
+
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-custom-token': token || '',
+            },
+            body: JSON.stringify({
+              bypassEmailConfirmation: true,
+              usersList: [userObj],
+            }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `API error: ${response.status}`);
+          }
+          result = await response.json();
         }
         break;
       }
@@ -196,6 +235,7 @@ export async function POST(request: NextRequest) {
             { status: 400 }
           );
         }
+        // SDK handles prefixing internally per docs
         (sdk as any).lastUrl = `${apiBaseUrl}/v2/chats/users-access`;
         result = await sdk.grantUserAccessToChatRoom(
           params.chatId,
@@ -303,27 +343,15 @@ export async function POST(request: NextRequest) {
       }
 
       case "updateUsers": {
-        if (!isUpdateUsersParams(params)) {
-          const error = createSDKError(
-            "Invalid parameters for updateUsers: users must be a non-empty array",
-            "INVALID_PARAMS",
-            ["Ensure users is an array", "Check that the array contains at least one user object", "Verify the JSON format is correct"]
-          );
-          return NextResponse.json(
-            { error: error.message, suggestions: error.suggestions, code: error.code },
-            { status: 400 }
-          );
-        }
-        if (params.users.length > 100) {
-          const error = createSDKError(
-            "Maximum 100 users allowed per request",
-            "MAX_USERS_EXCEEDED",
-            ["Split the request into multiple batches", "Process users in chunks of 100 or less"]
-          );
-          return NextResponse.json(
-            { error: error.message, suggestions: error.suggestions, code: error.code },
-            { status: 400 }
-          );
+        // Auto-prefix xmppUsername if missing before validation
+        if (appId) {
+          params.users.forEach((user: any) => {
+            if (user.userId && !user.xmppUsername) {
+              user.xmppUsername = `${appId}_${user.userId}`;
+            } else if (user.xmppUsername && !user.xmppUsername.startsWith(appId)) {
+              user.xmppUsername = `${appId}_${user.xmppUsername}`;
+            }
+          });
         }
 
         // Validate users array
@@ -358,6 +386,17 @@ export async function POST(request: NextRequest) {
 
         // Prepare users with validated values
         const users = validation.value || params.users;
+
+        // Filter allowed fields for updateUsers per documentation
+        const cleanedUsers = users.map((user: any) => {
+          const allowedFields: any = {};
+          if (user.xmppUsername) allowedFields.xmppUsername = user.xmppUsername;
+          if (user.firstName) allowedFields.firstName = user.firstName;
+          if (user.lastName) allowedFields.lastName = user.lastName;
+          if (user.username) allowedFields.username = user.username;
+          if (user.profileImage) allowedFields.profileImage = user.profileImage;
+          return allowedFields;
+        });
 
         // Log the request details (x-custom-token is automatically added by SDK backend)
         console.log(`[updateUsers] Preparing to update ${users.length} user(s)`);
@@ -501,6 +540,148 @@ export async function POST(request: NextRequest) {
             throw err;
           }
           
+          result = await response.json();
+        }
+        break;
+      }
+
+      case "updateChatRoom": {
+        if (!isUpdateChatRoomParams(params)) {
+          return NextResponse.json(
+            { error: "chatId and updateData are required" },
+            { status: 400 }
+          );
+        }
+        
+        // Auto-prefix chatId if appId is available and prefix is missing
+        if (appId && typeof params.chatId === 'string' && !params.chatId.startsWith(appId)) {
+          params.chatId = `${appId}_${params.chatId}`;
+        }
+        
+        if (typeof (sdk as any).updateChatRoom === 'function') {
+          (sdk as any).lastUrl = `${apiBaseUrl}/v2/apps/${appId}/chats/${params.chatId}`;
+          result = await (sdk as any).updateChatRoom(params.chatId, params.updateData);
+        } else {
+          const baseUrl = (process.env.ETHORA_CHAT_API_URL || 'https://api.ethoradev.com').replace(/\/$/, '');
+          const token = generateServerToken();
+          const endpoint = `${baseUrl}/v2/apps/${appId}/chats/${params.chatId}`;
+          (sdk as any).lastUrl = endpoint;
+          
+          const response = await fetch(endpoint, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-custom-token': token || '',
+            },
+            body: JSON.stringify(params.updateData),
+          });
+          
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `API error: ${response.status}`);
+          }
+          result = await response.json();
+        }
+        break;
+      }
+
+      case "getUserChats": {
+        if (!isGetUserChatsParams(params)) {
+          return NextResponse.json(
+            { error: "userId is required" },
+            { status: 400 }
+          );
+        }
+        
+        // Use plain userId for /users/{userId} paths per documentation
+        const targetUserId = params.userId;
+        
+        if (typeof (sdk as any).getUserChats === 'function') {
+          (sdk as any).lastUrl = `${apiBaseUrl}/v2/apps/${appId}/users/${targetUserId}/chats`;
+          result = await (sdk as any).getUserChats(targetUserId, params.params);
+        } else {
+          const baseUrl = (process.env.ETHORA_CHAT_API_URL || 'https://api.ethoradev.com').replace(/\/$/, '');
+          const token = generateServerToken();
+          const query = new URLSearchParams();
+          if (params.params?.limit) query.set('limit', params.params.limit.toString());
+          if (params.params?.offset) query.set('offset', params.params.offset.toString());
+          if (params.params?.includeMembers) query.set('includeMembers', 'true');
+          
+          const endpoint = `${baseUrl}/v2/apps/${appId}/users/${targetUserId}/chats?${query.toString()}`;
+          (sdk as any).lastUrl = endpoint;
+          
+          const response = await fetch(endpoint, {
+            method: 'GET',
+            headers: {
+              'x-custom-token': token || '',
+            },
+          });
+          
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `API error: ${response.status}`);
+          }
+          result = await response.json();
+        }
+        break;
+      }
+
+      case "grantChatbotAccessToChatRoom": {
+        if (!isGrantChatbotAccessParams(params)) {
+          return NextResponse.json(
+            { error: "chatId is required" },
+            { status: 400 }
+          );
+        }
+        
+        const botJid = process.env.ETHORA_CHAT_BOT_JID;
+        if (!botJid) {
+          throw new Error("Chatbot JID not configured. Set ETHORA_CHAT_BOT_JID environment variable.");
+        }
+
+        // Extract username from JID per documentation
+        const chatbotUsername = botJid.split('@')[0];
+        
+        // Auto-prefix chatId if missing
+        let targetId = params.chatId;
+        
+        if (typeof (sdk as any).grantChatbotAccessToChatRoom === 'function') {
+          (sdk as any).lastUrl = `${apiBaseUrl}/v2/chats/users-access`;
+          result = await (sdk as any).grantChatbotAccessToChatRoom(targetId);
+        } else {
+          // Fallback logic using grantUserAccessToChatRoom pattern
+          const baseUrl = (process.env.ETHORA_CHAT_API_URL || 'https://api.ethoradev.com').replace(/\/$/, '');
+          const token = generateServerToken();
+          
+          // Prefix chatbot username with appId
+          const prefixedBotUsername = chatbotUsername.startsWith(appId) 
+            ? chatbotUsername 
+            : `${appId}_${chatbotUsername}`;
+
+          // Use short name for chat room
+          const shortChatName = targetId.startsWith(appId) 
+            ? targetId 
+            : `${appId}_${targetId}`;
+
+          const endpoint = `${baseUrl}/v2/chats/users-access`;
+          (sdk as any).lastUrl = endpoint;
+          
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-custom-token': token || '',
+            },
+            body: JSON.stringify({
+              chatName: shortChatName,
+              members: [prefixedBotUsername],
+            }),
+          });
+          
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `API error: ${response.status}`);
+          }
           result = await response.json();
         }
         break;

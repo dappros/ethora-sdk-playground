@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@ethora/chat-component": "^25.11.6",
-    "@ethora/sdk-backend": "^25.02.03",
+    "@ethora/sdk-backend": "^25.02.04",
     "joi": "^18.0.2",
     "next": "^14.2.0",
     "react": "^18.3.1",
