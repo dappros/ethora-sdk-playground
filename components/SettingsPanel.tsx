@@ -232,15 +232,6 @@ export default function SettingsPanel({
           </div>
         </div>
         <div>
-          <Label htmlFor="qrUrl">QR URL</Label>
-          <Input
-            id="qrUrl"
-            value={settings.qrUrl}
-            onChange={(value) => handleChange('qrUrl', value)}
-            placeholder="https://app.ethora.com/app/chat/?qrChatId="
-          />
-        </div>
-        <div>
           <Label htmlFor="backgroundChatColor">Background Chat Color</Label>
           <div className="flex gap-2">
             <Input

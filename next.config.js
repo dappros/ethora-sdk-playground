@@ -11,6 +11,10 @@ const nextConfig = {
     }
     return config
   },
+  env: {
+    ETHORA_CHAT_API_URL: process.env.ETHORA_CHAT_API_URL,
+    ETHORA_XMPP_DEV_SERVER: process.env.ETHORA_XMPP_DEV_SERVER,
+  },
 }
 
 module.exports = nextConfig

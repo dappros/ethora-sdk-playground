@@ -270,11 +270,63 @@ export interface PlaygroundSettings {
 const resolveApiBaseUrl = () => {
   const raw =
     process.env.NEXT_PUBLIC_ETHORA_CHAT_API_URL ||
-    process.env.ETHORA_CHAT_API_URL ||
+    process.env.NEXT_PUBLIC_BACKEND_URL ||
     'https://api.ethoradev.com';
   const trimmed = raw.replace(/\/$/, '');
   return trimmed.endsWith('/v1') ? trimmed : `${trimmed}/v1`;
 };
+
+const resolveXmppDevServer = () => {
+  if (typeof process === 'undefined') return 'wss://xmpp.ethoradev.com:5443/ws';
+  
+  // 1. Try explicit XMPP vars
+  const explicit = 
+    process.env.NEXT_PUBLIC_ETHORA_CHAT_URL ||
+    process.env.NEXT_PUBLIC_ETHORA_XMPP_DEV_SERVER ||
+    process.env.ETHORA_CHAT_URL ||
+    process.env.ETHORA_XMPP_DEV_SERVER;
+    
+  if (explicit) return explicit;
+  
+  // 2. Derive from API URL
+  const apiUrl = process.env.NEXT_PUBLIC_ETHORA_CHAT_API_URL || process.env.ETHORA_CHAT_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL;
+  if (apiUrl) {
+    try {
+      const url = new URL(apiUrl);
+      const hostname = url.hostname;
+      // Replace 'api.' with 'xmpp.' or just use hostname if it doesn't start with api.
+      const xmppHostname = hostname.startsWith('api.') ? hostname.replace('api.', 'xmpp.') : `xmpp.${hostname}`;
+      return `wss://${xmppHostname}/ws`;
+    } catch {
+      // Fallback
+    }
+  }
+  
+  return 'wss://xmpp.ethoradev.com:5443/ws';
+};
+
+const resolveXmppHost = (devServer: string) => {
+  if (typeof process !== 'undefined' && (process.env.NEXT_PUBLIC_ETHORA_XMPP_HOST || process.env.ETHORA_XMPP_HOST)) {
+    return (process.env.NEXT_PUBLIC_ETHORA_XMPP_HOST || process.env.ETHORA_XMPP_HOST) as string;
+  }
+  try {
+    const url = new URL(devServer);
+    return url.hostname;
+  } catch {
+    return 'xmpp.ethoradev.com';
+  }
+};
+
+const resolveXmppConference = (host: string) => {
+  if (typeof process !== 'undefined' && (process.env.NEXT_PUBLIC_ETHORA_XMPP_CONFERENCE || process.env.ETHORA_XMPP_CONFERENCE)) {
+    return (process.env.NEXT_PUBLIC_ETHORA_XMPP_CONFERENCE || process.env.ETHORA_XMPP_CONFERENCE) as string;
+  }
+  return `conference.${host}`;
+};
+
+const xmppDevServerDefault = resolveXmppDevServer();
+const xmppHostDefault = resolveXmppHost(xmppDevServerDefault);
+const xmppConferenceDefault = resolveXmppConference(xmppHostDefault);
 
 export const defaultSettings: PlaygroundSettings = {
   userId: 'playground-user-1',
@@ -285,20 +337,9 @@ export const defaultSettings: PlaygroundSettings = {
   qrUrl: typeof process !== 'undefined' && process.env.NEXT_PUBLIC_ETHORA_CHAT_QR_URL
     ? process.env.NEXT_PUBLIC_ETHORA_CHAT_QR_URL
     : 'https://app.ethoradev.com/app/chat/?qrChatId=',
-  xmppDevServer: typeof process !== 'undefined' && (
-    process.env.NEXT_PUBLIC_ETHORA_CHAT_URL ||
-    process.env.ETHORA_CHAT_URL ||
-    process.env.NEXT_PUBLIC_ETHORA_XMPP_DEV_SERVER ||
-    process.env.ETHORA_XMPP_DEV_SERVER
-  )
-    ? (process.env.NEXT_PUBLIC_ETHORA_CHAT_URL || process.env.ETHORA_CHAT_URL || process.env.NEXT_PUBLIC_ETHORA_XMPP_DEV_SERVER || process.env.ETHORA_XMPP_DEV_SERVER) as string
-    : 'wss://xmpp.ethoradev.com:5443/ws',
-  xmppHost: typeof process !== 'undefined' && (process.env.NEXT_PUBLIC_ETHORA_XMPP_HOST || process.env.ETHORA_XMPP_HOST)
-    ? (process.env.NEXT_PUBLIC_ETHORA_XMPP_HOST || process.env.ETHORA_XMPP_HOST) as string
-    : 'xmpp.ethoradev.com',
-  xmppConference: typeof process !== 'undefined' && (process.env.NEXT_PUBLIC_ETHORA_XMPP_CONFERENCE || process.env.ETHORA_XMPP_CONFERENCE)
-    ? (process.env.NEXT_PUBLIC_ETHORA_XMPP_CONFERENCE || process.env.ETHORA_XMPP_CONFERENCE) as string
-    : 'conference.xmpp.ethoradev.com',
+  xmppDevServer: xmppDevServerDefault,
+  xmppHost: xmppHostDefault,
+  xmppConference: xmppConferenceDefault,
   xmppPingOnSendEnabled: typeof process !== 'undefined' && (process.env.NEXT_PUBLIC_ETHORA_XMPP_PING_ON_SEND_ENABLED === 'false' || process.env.ETHORA_XMPP_PING_ON_SEND_ENABLED === 'false')
     ? false
     : true,
@@ -324,8 +365,8 @@ export const defaultSettings: PlaygroundSettings = {
   botMessageAutoScroll: false,
   disableTypingIndicator: false,
   // Use environment variable for baseUrl or fall back to default
-  baseUrl: typeof process !== 'undefined' && process.env.NEXT_PUBLIC_ETHORA_CHAT_API_URL 
-    ? `${process.env.NEXT_PUBLIC_ETHORA_CHAT_API_URL}/v1`
+  baseUrl: typeof process !== 'undefined' && (process.env.NEXT_PUBLIC_ETHORA_CHAT_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL)
+    ? `${process.env.NEXT_PUBLIC_ETHORA_CHAT_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL}/v1`
     : 'https://api.ethoradev.com/v1',
   enableRoomsRetryHelperText: 'Initializing room',
   blockMessageSendingWhenProcessing: false,

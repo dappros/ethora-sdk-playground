@@ -16,11 +16,23 @@ export function getSDKInstance(): ChatRepository {
     // Only set default for API URL, not for APP_ID and APP_SECRET
     // These should be provided by user in .env.local
     if (!process.env.ETHORA_CHAT_API_URL) {
-      process.env.ETHORA_CHAT_API_URL = 'https://api.ethoradev.com';
+      process.env.ETHORA_CHAT_API_URL = process.env.NEXT_PUBLIC_ETHORA_CHAT_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'https://api.ethoradev.com';
     }
 
     if (!process.env.ETHORA_XMPP_DEV_SERVER) {
-      process.env.ETHORA_XMPP_DEV_SERVER = 'wss://xmpp.ethoradev.com:5443/ws';
+      const explicit = process.env.NEXT_PUBLIC_ETHORA_CHAT_URL || process.env.NEXT_PUBLIC_ETHORA_XMPP_DEV_SERVER || process.env.ETHORA_CHAT_URL;
+      if (explicit) {
+        process.env.ETHORA_XMPP_DEV_SERVER = explicit;
+      } else {
+        try {
+          const url = new URL(process.env.ETHORA_CHAT_API_URL);
+          const hostname = url.hostname;
+          const xmppHostname = hostname.startsWith('api.') ? hostname.replace('api.', 'xmpp.') : `xmpp.${hostname}`;
+          process.env.ETHORA_XMPP_DEV_SERVER = `wss://${xmppHostname}/ws`;
+        } catch {
+          process.env.ETHORA_XMPP_DEV_SERVER = 'wss://xmpp.ethoradev.com:5443/ws';
+        }
+      }
     }
 
     // Verify that APP_ID and APP_SECRET are set if SDK requires them
