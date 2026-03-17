@@ -95,9 +95,8 @@ export function generateServerToken(): string | null {
     return jwt.sign(
       {
         data: {
-          type: "client",
-    userId: "playground-user-1",
-    appId: "699c6923429c2757ac8ab6a4"
+          appId: appId,
+          type: 'server',
         },
       },
       appSecret,
@@ -108,6 +107,7 @@ export function generateServerToken(): string | null {
     return null;
   }
 }
+
 
 /**
  * Generate server-to-server JWT token (x-custom-token)
