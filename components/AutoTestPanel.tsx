@@ -35,6 +35,7 @@ export default function AutoTestPanel({ onExecute }: AutoTestPanelProps) {
     const userId = `auto-user-${timestamp}-${randomId}`;
     const chatId = `auto-room-${timestamp}-${randomId}`;
     const email = `auto-${timestamp}@example.com`;
+    const appId = process.env.NEXT_PUBLIC_ETHORA_CHAT_APP_ID || '';
 
 
     const steps: Array<{
@@ -58,6 +59,15 @@ export default function AutoTestPanel({ onExecute }: AutoTestPanelProps) {
           },
         }),
       },
+      {
+        id: 'create-user-jwt',
+        label: 'create user jwt token',
+        method: 'createChatUserJwtToken',
+        buildParams: () => ({
+          userId,
+        }),
+      },
+
       {
         id: 'update-user',
         label: 'update user',
@@ -106,6 +116,7 @@ export default function AutoTestPanel({ onExecute }: AutoTestPanelProps) {
           userId,
         }),
       },
+
       {
         id: 'get-user-chats',
         label: 'get user chats',
@@ -119,6 +130,7 @@ export default function AutoTestPanel({ onExecute }: AutoTestPanelProps) {
           },
         }),
       },
+
       {
         id: 'get-user',
         label: 'get user',
@@ -127,6 +139,7 @@ export default function AutoTestPanel({ onExecute }: AutoTestPanelProps) {
           return { xmppUsername: userId };
         },
       },
+
       {
         id: 'get-users',
         label: 'get users',
@@ -246,7 +259,7 @@ export default function AutoTestPanel({ onExecute }: AutoTestPanelProps) {
           </button>
         </div>
         <div className="text-xs text-gray-500 dark:text-gray-400">
-          Flow: user → update user → room → update room → access → chats → lookup → delete
+          Flow: create user → update user → create/update room → grant access → list chats/get user chats → revoke access → delete room/user
         </div>
       </div>
 

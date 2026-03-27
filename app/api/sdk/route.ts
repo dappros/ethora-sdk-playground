@@ -9,27 +9,21 @@ import {
   validateUpdateUsers,
   validateFileUploads,
 } from "@/lib/user-validation";
-import type {
-  SDKMethodName,
-  CreateChatRoomParams,
-  CreateUserParams,
-  GrantUserAccessParams,
-  DeleteChatRoomParams,
-  DeleteUsersParams,
-  GetUsersParams,
-  UpdateUsersParams,
-} from "@/lib/sdk-types";
 import {
   isCreateChatRoomParams,
   isCreateUserParams,
   isGrantUserAccessParams,
   isDeleteChatRoomParams,
   isDeleteUsersParams,
-  isGetUsersParams,
-  isUpdateUsersParams,
   isUpdateChatRoomParams,
   isGetUserChatsParams,
-  isGrantChatbotAccessParams,
+  isGetUserChatsInAppParams,
+  isGetUsersBatchJobParams,
+  isGetAppUserByXmppUsernameParams,
+  isCreateAppTokenParams,
+  isListChatsInAppParams,
+  isCreateChatUserJwtTokenParams,
+  isBuildChatRoomIdentifierParams,
   isDeleteUsersAccessParams,
   isRemoveUserAccessFromChatRoomParams,
   isSendPushToUserParams,
@@ -81,6 +75,17 @@ export async function POST(request: NextRequest) {
     (sdk as any).lastUrl = undefined;
     
     const apiBaseUrl = (process.env.ETHORA_CHAT_API_URL || 'https://api.ethoradev.com').replace(/\/$/, '');
+    const createB2BHeaders = (token: string | null, withJsonContentType = false) => {
+      const headers: Record<string, string> = {};
+      if (withJsonContentType) {
+        headers["Content-Type"] = "application/json";
+      }
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+        headers["x-custom-token"] = token;
+      }
+      return headers;
+    };
 
     let result: any;
 
@@ -204,10 +209,7 @@ export async function POST(request: NextRequest) {
 
           const response = await fetch(endpoint, {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-custom-token': token || '',
-            },
+            headers: createB2BHeaders(token, true),
             body: JSON.stringify({
               bypassEmailConfirmation: true,
               usersList: [userObj],
@@ -474,10 +476,7 @@ export async function POST(request: NextRequest) {
           (sdk as any).lastUrl = endpoint;
           const response = await fetch(endpoint, {
             method: 'DELETE',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-custom-token': token || '',
-            },
+            headers: createB2BHeaders(token, true),
             body: JSON.stringify({
               chatName,
               members,
@@ -501,10 +500,10 @@ export async function POST(request: NextRequest) {
       case "sendPushToUser": {
         if (!isSendPushToUserParams(params)) {
           const error = createSDKError(
-            "Invalid parameters for sendPushToUser: userId and data are required",
+            "Invalid parameters for sendPushToUser: appId and data are required",
             "INVALID_PARAMS",
-            ERROR_SUGGESTIONS.MISSING_USER_ID,
-            "userId"
+            ["Provide appId"],
+            "appId"
           );
           return NextResponse.json(
             { error: error.message, suggestions: error.suggestions, code: error.code, field: error.field },
@@ -512,25 +511,18 @@ export async function POST(request: NextRequest) {
           );
         }
 
-        // Use SDK method if available, otherwise direct API call
-        if (typeof (sdk as any).sendPushToUser === 'function') {
-          (sdk as any).lastUrl = `${apiBaseUrl}/v1/push/user/${params.userId}`;
-          result = await (sdk as any).sendPushToUser(params.userId, params.data);
-        } else {
+        {
           const baseUrl = (process.env.ETHORA_CHAT_API_URL || 'https://api.ethoradev.com').replace(/\/$/, '');
           const token = generateServerToken();
-          const endpoint = `${baseUrl}/v1/push/user/${params.userId}`;
+          const endpoint = `${baseUrl}/v1/push/app/${params.appId}`;
           (sdk as any).lastUrl = endpoint;
-          
+
           const response = await fetch(endpoint, {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-custom-token': token || '',
-            },
+            headers: createB2BHeaders(token, true),
             body: JSON.stringify(params.data),
           });
-          
+
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
             const err = new Error(errorData.error || `API error: ${response.status} ${response.statusText}`);
@@ -539,7 +531,7 @@ export async function POST(request: NextRequest) {
             (err as any).url = endpoint;
             throw err;
           }
-          
+
           result = await response.json();
         }
         break;
@@ -569,10 +561,7 @@ export async function POST(request: NextRequest) {
           
           const response = await fetch(endpoint, {
             method: 'PATCH',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-custom-token': token || '',
-            },
+            headers: createB2BHeaders(token, true),
             body: JSON.stringify(params.updateData),
           });
           
@@ -612,9 +601,7 @@ export async function POST(request: NextRequest) {
           
           const response = await fetch(endpoint, {
             method: 'GET',
-            headers: {
-              'x-custom-token': token || '',
-            },
+            headers: createB2BHeaders(token),
           });
           
           if (!response.ok) {
@@ -626,64 +613,197 @@ export async function POST(request: NextRequest) {
         break;
       }
 
-      case "grantChatbotAccessToChatRoom": {
-        if (!isGrantChatbotAccessParams(params)) {
+      case "getUserChatsInApp": {
+        if (!isGetUserChatsInAppParams(params)) {
           return NextResponse.json(
-            { error: "chatId is required" },
+            { error: "appId and userId are required" },
             { status: 400 }
           );
         }
-        
-        const botJid = process.env.ETHORA_CHAT_BOT_JID;
-        if (!botJid) {
-          throw new Error("Chatbot JID not configured. Set ETHORA_CHAT_BOT_JID environment variable.");
-        }
 
-        // Extract username from JID per documentation
-        const chatbotUsername = botJid.split('@')[0];
-        
-        // Auto-prefix chatId if missing
-        let targetId = params.chatId;
-        
-        if (typeof (sdk as any).grantChatbotAccessToChatRoom === 'function') {
-          (sdk as any).lastUrl = `${apiBaseUrl}/v2/chats/users-access`;
-          result = await (sdk as any).grantChatbotAccessToChatRoom(targetId);
-        } else {
-          // Fallback logic using grantUserAccessToChatRoom pattern
-          const baseUrl = (process.env.ETHORA_CHAT_API_URL || 'https://api.ethoradev.com').replace(/\/$/, '');
+        const query = new URLSearchParams();
+        if (params.params?.limit !== undefined) query.set("limit", String(params.params.limit));
+        if (params.params?.offset !== undefined) query.set("offset", String(params.params.offset));
+        if (params.params?.includeMembers) query.set("includeMembers", "true");
+        const queryString = query.toString();
+
+        {
           const token = generateServerToken();
-          
-          // Prefix chatbot username with appId
-          const prefixedBotUsername = chatbotUsername.startsWith(appId) 
-            ? chatbotUsername 
-            : `${appId}_${chatbotUsername}`;
-
-          // Use short name for chat room
-          const shortChatName = targetId.startsWith(appId) 
-            ? targetId 
-            : `${appId}_${targetId}`;
-
-          const endpoint = `${baseUrl}/v2/chats/users-access`;
+          const endpoint = `${apiBaseUrl}/v2/apps/${params.appId}/users/${params.userId}/chats${queryString ? `?${queryString}` : ""}`;
           (sdk as any).lastUrl = endpoint;
-          
           const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-custom-token': token || '',
-            },
-            body: JSON.stringify({
-              chatName: shortChatName,
-              members: [prefixedBotUsername],
-            }),
+            method: "GET",
+            headers: createB2BHeaders(token),
           });
-          
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
             throw new Error(errorData.error || `API error: ${response.status}`);
           }
           result = await response.json();
         }
+        break;
+      }
+
+      case "getUsersBatchJob":
+      case "getUserBadgeJob": {
+        if (!isGetUsersBatchJobParams(params)) {
+          return NextResponse.json(
+            { error: "appId and jobId are required" },
+            { status: 400 }
+          );
+        }
+
+        (sdk as any).lastUrl = `${apiBaseUrl}/v2/apps/${params.appId}/users/batch/${params.jobId}`;
+        if (typeof (sdk as any).getUsersBatchJob === "function") {
+          result = await (sdk as any).getUsersBatchJob(params.appId, params.jobId);
+        } else {
+          const token = generateServerToken();
+          const endpoint = `${apiBaseUrl}/v2/apps/${params.appId}/users/batch/${params.jobId}`;
+          (sdk as any).lastUrl = endpoint;
+          const response = await fetch(endpoint, {
+            method: "GET",
+            headers: createB2BHeaders(token),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `API error: ${response.status}`);
+          }
+          result = await response.json();
+        }
+        break;
+      }
+
+      case "getAppUserByXmppUsername":
+      case "getAppUserByExample": {
+        if (!isGetAppUserByXmppUsernameParams(params)) {
+          return NextResponse.json(
+            { error: "xmppUsername is required" },
+            { status: 400 }
+          );
+        }
+
+        const encodedXmppUsername = encodeURIComponent(params.xmppUsername);
+        (sdk as any).lastUrl = `${apiBaseUrl}/v1/apps/users/${encodedXmppUsername}`;
+        if (typeof (sdk as any).getAppUserByXmppUsername === "function") {
+          result = await (sdk as any).getAppUserByXmppUsername(params.xmppUsername);
+        } else {
+          const token = generateServerToken();
+          const endpoint = `${apiBaseUrl}/v1/apps/users/${encodedXmppUsername}`;
+          (sdk as any).lastUrl = endpoint;
+          const response = await fetch(endpoint, {
+            method: "GET",
+            headers: createB2BHeaders(token),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `API error: ${response.status}`);
+          }
+          result = await response.json();
+        }
+        break;
+      }
+
+      case "createAppToken": {
+        if (!isCreateAppTokenParams(params)) {
+          return NextResponse.json(
+            { error: "appId is required" },
+            { status: 400 }
+          );
+        }
+
+        (sdk as any).lastUrl = `${apiBaseUrl}/v2/apps/${params.appId}/tokens`;
+        if (typeof (sdk as any).createAppToken === "function") {
+          const payload = params.label ? { label: params.label } : undefined;
+          result = await (sdk as any).createAppToken(params.appId, payload);
+        } else {
+          const token = generateServerToken();
+          const endpoint = `${apiBaseUrl}/v2/apps/${params.appId}/tokens`;
+          (sdk as any).lastUrl = endpoint;
+          const response = await fetch(endpoint, {
+            method: "POST",
+            headers: createB2BHeaders(token, true),
+            body: JSON.stringify(params.label ? { label: params.label } : {}),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `API error: ${response.status}`);
+          }
+          result = await response.json();
+        }
+        break;
+      }
+
+      case "listChatsInApp": {
+        if (!isListChatsInAppParams(params)) {
+          return NextResponse.json(
+            { error: "appId is required" },
+            { status: 400 }
+          );
+        }
+
+        const query = new URLSearchParams();
+        if (params.params?.limit !== undefined) query.set("limit", String(params.params.limit));
+        if (params.params?.offset !== undefined) query.set("offset", String(params.params.offset));
+        if (params.params?.includeMembers) query.set("includeMembers", "true");
+        const queryString = query.toString();
+
+        {
+          const token = generateServerToken();
+          const endpoint = `${apiBaseUrl}/v2/apps/${params.appId}/chats${queryString ? `?${queryString}` : ""}`;
+          (sdk as any).lastUrl = endpoint;
+          const response = await fetch(endpoint, {
+            method: "GET",
+            headers: createB2BHeaders(token),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `API error: ${response.status}`);
+          }
+          result = await response.json();
+        }
+        break;
+      }
+
+      case "createChatUserJwtToken": {
+        if (!isCreateChatUserJwtTokenParams(params)) {
+          return NextResponse.json(
+            { error: "userId is required" },
+            { status: 400 }
+          );
+        }
+        if (typeof (sdk as any).createChatUserJwtToken !== "function") {
+          return NextResponse.json(
+            { error: "SDK method createChatUserJwtToken is not available in current package version" },
+            { status: 400 }
+          );
+        }
+        result = (sdk as any).createChatUserJwtToken(params.userId);
+        break;
+      }
+
+      case "buildChatRoomIdentifier": {
+        if (!isBuildChatRoomIdentifierParams(params)) {
+          return NextResponse.json(
+            { error: "chatId is required" },
+            { status: 400 }
+          );
+        }
+        if (typeof (sdk as any).createChatName !== "function") {
+          return NextResponse.json(
+            { error: "SDK method createChatName is not available in current package version" },
+            { status: 400 }
+          );
+        }
+        const includeDomain = params.full !== false;
+        const chatName = (sdk as any).createChatName(params.chatId, includeDomain);
+        result = {
+          chatName,
+          includeDomain,
+        };
         break;
       }
 

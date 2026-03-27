@@ -22,6 +22,7 @@ export interface ServerTokenPayload {
   data: {
     appId: string;
     type: "server";
+    tenantId?: string;
   };
 }
 
@@ -116,8 +117,9 @@ export interface UpdateUsersRequest {
 export interface GetUsersQueryParams {
   chatName?: string; // Chat name (appId_chatId for group chats, xmppUsernameA-xmppUsernameB for 1-on-1)
   xmppUsername?: string; // XMPP username for getting a specific user
-  page?: number; // Added for alignment with playground
-  pageSize?: number; // Added for alignment with playground
+  userId?: string;
+  limit?: number;
+  offset?: number;
 }
 
 /**
@@ -137,10 +139,20 @@ export interface UpdateChatRoomData {
   description?: string;
 }
 
+export interface ListAppChatsQueryParams {
+  limit?: number;
+  offset?: number;
+  includeMembers?: boolean;
+}
+
 /**
  * Chat repository interface
  */
 export interface ChatRepository {
+  createChatName(chatId: UUID, full?: boolean): string;
+
+  createChatUserJwtToken(userId: UUID): string;
+
   /**
    * Creates a user in the chat service
    */
@@ -224,6 +236,12 @@ export interface ChatRepository {
    */
   getUserChats(userId: UUID, params?: GetUserChatsQueryParams): Promise<ApiResponse>;
 
+  getUserChatsInApp(
+    appId: UUID,
+    userId: UUID,
+    params?: GetUserChatsQueryParams
+  ): Promise<ApiResponse>;
+
   /**
    * Updates metadata for an existing room
    *
@@ -232,12 +250,13 @@ export interface ChatRepository {
    */
   updateChatRoom(chatId: UUID, updateData: UpdateChatRoomData): Promise<ApiResponse>;
 
-  /**
-   * Grants chatbot access to a chat room
-   *
-   * @param chatId - The unique identifier of the chat/workspace
-   */
-  grantChatbotAccessToChatRoom(chatId: UUID): Promise<ApiResponse>;
+  listChatsInApp(appId: UUID, params?: ListAppChatsQueryParams): Promise<ApiResponse>;
+
+  createAppToken(appId: UUID, payload?: { label?: string }): Promise<ApiResponse>;
+
+  getUsersBatchJob(appId: UUID, jobId: UUID): Promise<ApiResponse>;
+
+  getAppUserByXmppUsername(xmppUsername: UUID): Promise<ApiResponse>;
 }
 
 // Internal Playground Types (to maintain compatibility with route and components)
@@ -298,7 +317,7 @@ export interface RemoveUserAccessFromChatRoomParams {
 }
 
 export interface SendPushToUserParams {
-  userId: string;
+  appId: string;
   data: Record<string, any>;
 }
 
@@ -312,7 +331,43 @@ export interface GetUserChatsParams {
   params?: GetUserChatsQueryParams;
 }
 
+export interface GetUserChatsInAppParams {
+  appId: string;
+  userId: string;
+  params?: GetUserChatsQueryParams;
+}
+
+export interface GetUsersBatchJobParams {
+  appId: string;
+  jobId: string;
+}
+
+export interface GetAppUserByXmppUsernameParams {
+  xmppUsername: string;
+}
+
+export interface CreateAppTokenParams {
+  appId: string;
+  label?: string;
+}
+
+export interface ListChatsInAppParams {
+  appId: string;
+  params?: ListAppChatsQueryParams;
+}
+
+export interface CreateChatUserJwtTokenParams {
+  userId: string;
+}
+
+export interface BuildChatRoomIdentifierParams {
+  chatId: string;
+  full?: boolean;
+}
+
 export type SDKMethodName =
+  | 'buildChatRoomIdentifier'
+  | 'createChatUserJwtToken'
   | 'createChatRoom'
   | 'createUser'
   | 'grantUserAccessToChatRoom'
@@ -325,7 +380,11 @@ export type SDKMethodName =
   | 'sendPushToUser'
   | 'updateChatRoom'
   | 'getUserChats'
-  | 'grantChatbotAccessToChatRoom';
+  | 'getUserChatsInApp'
+  | 'getUsersBatchJob'
+  | 'getAppUserByXmppUsername'
+  | 'createAppToken'
+  | 'listChatsInApp';
 // Helper to keep guards working with minimal changes in route.ts
 export function isCreateChatRoomParams(params: any): params is CreateChatRoomParams {
   return params && typeof params.chatId === 'string' && params.roomData && typeof params.roomData.uuid === 'string';
@@ -368,7 +427,7 @@ export function isRemoveUserAccessFromChatRoomParams(params: any): params is Rem
 }
 
 export function isSendPushToUserParams(params: any): params is SendPushToUserParams {
-  return params && typeof params.userId === 'string' && params.data;
+  return params && typeof params.appId === 'string' && params.data;
 }
 
 export function isUpdateChatRoomParams(params: any): params is UpdateChatRoomParams {
@@ -379,7 +438,37 @@ export function isGetUserChatsParams(params: any): params is GetUserChatsParams 
   return params && typeof params.userId === 'string';
 }
 
-export function isGrantChatbotAccessParams(params: any): params is { chatId: string } {
+export function isGetUserChatsInAppParams(params: any): params is GetUserChatsInAppParams {
+  return params && typeof params.appId === 'string' && typeof params.userId === 'string';
+}
+
+export function isGetUsersBatchJobParams(params: any): params is GetUsersBatchJobParams {
+  return params && typeof params.appId === 'string' && typeof params.jobId === 'string';
+}
+
+export function isGetAppUserByXmppUsernameParams(
+  params: any
+): params is GetAppUserByXmppUsernameParams {
+  return params && typeof params.xmppUsername === 'string';
+}
+
+export function isCreateAppTokenParams(params: any): params is CreateAppTokenParams {
+  return params && typeof params.appId === 'string';
+}
+
+export function isListChatsInAppParams(params: any): params is ListChatsInAppParams {
+  return params && typeof params.appId === 'string';
+}
+
+export function isCreateChatUserJwtTokenParams(
+  params: any
+): params is CreateChatUserJwtTokenParams {
+  return params && typeof params.userId === 'string';
+}
+
+export function isBuildChatRoomIdentifierParams(
+  params: any
+): params is BuildChatRoomIdentifierParams {
   return params && typeof params.chatId === 'string';
 }
 

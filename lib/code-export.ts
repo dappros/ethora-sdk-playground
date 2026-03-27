@@ -145,9 +145,8 @@ export function generateSDKCode(request: RequestData): string {
     },
     grantUserAccessToChatRoom: (p) =>
       `await sdk.grantUserAccessToChatRoom('${p.chatId}', '${p.userId}');`,
-    grantChatbotAccessToChatRoom: (p) => `await sdk.grantChatbotAccessToChatRoom('${p.chatId}');`,
     createChatUserJwtToken: (p) => `const token = sdk.createChatUserJwtToken('${p.userId}');`,
-    createChatName: (p) =>
+    buildChatRoomIdentifier: (p) =>
       `const chatName = sdk.createChatName('${p.chatId}', ${p.full !== false ? 'true' : 'false'});`,
     deleteChatRoom: (p) => `await sdk.deleteChatRoom('${p.chatId}');`,
     deleteUsers: (p) => `await sdk.deleteUsers(${JSON.stringify(p.userIds)});`,
@@ -157,8 +156,9 @@ export function generateSDKCode(request: RequestData): string {
       const filter: any = {};
       if (p.chatName) filter.chatName = p.chatName;
       if (p.xmppUsername) filter.xmppUsername = p.xmppUsername;
-      if (p.page !== undefined) filter.page = p.page;
-      if (p.pageSize !== undefined) filter.pageSize = p.pageSize;
+      if (p.userId) filter.userId = p.userId;
+      if (p.limit !== undefined) filter.limit = p.limit;
+      if (p.offset !== undefined) filter.offset = p.offset;
       if (Object.keys(filter).length > 0) {
         return `await sdk.getUsers(${JSON.stringify(filter)});`;
       }
@@ -166,6 +166,12 @@ export function generateSDKCode(request: RequestData): string {
     },
     updateUsers: (p) => `await sdk.updateUsers(${JSON.stringify(p.users, null, 2)});`,
     sendPushToUser: (p) => `await sdk.sendPushToUser('${p.userId}', ${JSON.stringify(p.data, null, 2)});`,
+    getUserChats: (p) => `await sdk.getUserChats('${p.userId}', ${JSON.stringify(p.params || {}, null, 2)});`,
+    getUserChatsInApp: (p) => `await sdk.getUserChatsInApp('${p.appId}', '${p.userId}', ${JSON.stringify(p.params || {}, null, 2)});`,
+    listChatsInApp: (p) => `await sdk.listChatsInApp('${p.appId}', ${JSON.stringify(p.params || {}, null, 2)});`,
+    getUsersBatchJob: (p) => `await sdk.getUsersBatchJob('${p.appId}', '${p.jobId}');`,
+    getAppUserByXmppUsername: (p) => `await sdk.getAppUserByXmppUsername('${p.xmppUsername}');`,
+    createAppToken: (p) => `await sdk.createAppToken('${p.appId}', ${JSON.stringify(p.label ? { label: p.label } : {}, null, 2)});`,
   };
 
   const generator = methodMap[method];

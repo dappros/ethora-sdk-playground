@@ -139,6 +139,48 @@ const HTTP_METHODS: HTTPMethod[] = [
       { key: 'offset', label: 'Offset', type: 'number', required: false, defaultValue: '0' },
     ],
   },
+  {
+    id: 'listChatsInApp',
+    name: 'List Chats In App (v2)',
+    path: '/v2/apps/{appId}/chats',
+    method: 'GET',
+    description: 'List chats in an app scope.',
+    params: [
+      { key: 'limit', label: 'Limit', type: 'number', required: false, defaultValue: '50' },
+      { key: 'offset', label: 'Offset', type: 'number', required: false, defaultValue: '0' },
+      { key: 'includeMembers', label: 'Include Members', type: 'text', required: false, defaultValue: 'true' },
+    ],
+  },
+  {
+    id: 'getUsersBatchJob',
+    name: 'Get Users Batch Job (v2)',
+    path: '/v2/apps/{appId}/users/batch/{jobId}',
+    method: 'GET',
+    description: 'Get users batch job status/result.',
+    params: [
+      { key: 'jobId', label: 'Job ID', type: 'text', required: true, defaultValue: 'job-id' },
+    ],
+  },
+  {
+    id: 'getAppUserByXmppUsername',
+    name: 'Get App User By XMPP Username (v1)',
+    path: '/v1/apps/users/{xmppUsername}',
+    method: 'GET',
+    description: 'Legacy app user lookup by xmpp username.',
+    params: [
+      { key: 'xmppUsername', label: 'XMPP Username', type: 'text', required: true, defaultValue: 'user-1' },
+    ],
+  },
+  {
+    id: 'createAppToken',
+    name: 'Create App Token (v2)',
+    path: '/v2/apps/{appId}/tokens',
+    method: 'POST',
+    description: 'Create app token for app-scoped integration.',
+    params: [
+      { key: 'label', label: 'Label', type: 'text', required: false, defaultValue: 'playground-token' },
+    ],
+  },
 ];
 
 export default function HTTPTestingPanel() {
@@ -239,7 +281,15 @@ export default function HTTPTestingPanel() {
           description: getValue('description'),
         };
         break;
+      case 'createAppToken':
+        payload = {
+          ...(getValue('label') ? { label: getValue('label') } : {}),
+        };
+        break;
       case 'getUserChats':
+      case 'listChatsInApp':
+      case 'getUsersBatchJob':
+      case 'getAppUserByXmppUsername':
         payload = null;
         break;
       default:
@@ -292,7 +342,7 @@ export default function HTTPTestingPanel() {
     setResult(null);
     setResponseTime(null);
     const startTime = Date.now();
-    const url = getFullUrl();
+    let url = getFullUrl();
     
     let options: RequestInit = {
       method: currentMethod.method,
@@ -339,9 +389,10 @@ export default function HTTPTestingPanel() {
         }
       });
       const queryString = queryParams.toString();
-      if (queryString && !url.includes('?')) {
-        options.body = null; // Ensure no body for GET
+      if (queryString) {
+        url = `${url}${url.includes('?') ? '&' : '?'}${queryString}`;
       }
+      options.body = null; // Ensure no body for GET
     }
 
     const requestLog: LogEntry = {

@@ -105,6 +105,9 @@ const SDK_METHODS: SDKMethod[] = [
     params: [
       { key: 'chatName', label: 'Chat Name (optional)', type: 'text', required: false, placeholder: 'appId_chatId' },
       { key: 'xmppUsername', label: 'XMPP Username (optional)', type: 'text', required: false, placeholder: 'appId_userId' },
+      { key: 'userId', label: 'User ID (optional)', type: 'text', required: false, placeholder: 'user-1' },
+      { key: 'limit', label: 'Limit (optional)', type: 'number', required: false, defaultValue: 50 },
+      { key: 'offset', label: 'Offset (optional)', type: 'number', required: false, defaultValue: 0 },
     ],
   },
   {
@@ -135,13 +138,13 @@ const SDK_METHODS: SDKMethod[] = [
     name: 'Send Push Notification',
     description: 'Send a push notification to a user',
     params: [
-      { key: 'userId', label: 'User ID', type: 'text', required: true, defaultValue: 'user-1' },
+      { key: 'appId', label: 'App ID', type: 'text', required: true, defaultValue: process.env.NEXT_PUBLIC_ETHORA_CHAT_APP_ID || '' },
       {
         key: 'data',
         label: 'Notification Data (JSON)',
         type: 'textarea',
         required: true,
-        defaultValue: '{\n  "title": "Hello",\n  "body": "This is a test notification",\n  "data": {\n    "key": "value"\n  }\n}',
+        defaultValue: '{\n  "jid": "<chat_username>",\n  "text": "<description>",\n  "title": "<title>",\n  "ttl": 3600\n}',
       },
     ],
   },
@@ -167,13 +170,55 @@ const SDK_METHODS: SDKMethod[] = [
     ],
   },
   {
-    id: 'grantChatbotAccessToChatRoom',
-    name: 'Grant Chatbot Access',
-    description: 'Grant chatbot access to a chat room',
+    id: 'getUserChatsInApp',
+    name: 'Get User Chats In App',
+    description: 'Retrieve all rooms for a user in a specific app',
     params: [
-      { key: 'chatId', label: 'Chat ID', type: 'text', required: true, defaultValue: 'test-room-1' },
+      { key: 'appId', label: 'App ID', type: 'text', required: true, defaultValue: process.env.NEXT_PUBLIC_ETHORA_CHAT_APP_ID || '' },
+      { key: 'userId', label: 'User ID', type: 'text', required: true, defaultValue: 'user-1' },
+      { key: 'limit', label: 'Limit', type: 'number', required: false, defaultValue: 50 },
+      { key: 'offset', label: 'Offset', type: 'number', required: false, defaultValue: 0 },
+      { key: 'includeMembers', label: 'Include Members', type: 'checkbox', required: false, defaultValue: true },
     ],
   },
+  {
+    id: 'listChatsInApp',
+    name: 'List Chats In App',
+    description: 'List chats in app scope',
+    params: [
+      { key: 'appId', label: 'App ID', type: 'text', required: true, defaultValue: process.env.NEXT_PUBLIC_ETHORA_CHAT_APP_ID || '' },
+      { key: 'limit', label: 'Limit', type: 'number', required: false, defaultValue: 50 },
+      { key: 'offset', label: 'Offset', type: 'number', required: false, defaultValue: 0 },
+      { key: 'includeMembers', label: 'Include Members', type: 'checkbox', required: false, defaultValue: false },
+    ],
+  },
+
+  {
+    id: 'getAppUserByXmppUsername',
+    name: 'Get App User By XMPP Username',
+    description: 'Legacy v1 app user lookup by xmppUsername',
+    params: [
+      { key: 'xmppUsername', label: 'XMPP Username', type: 'text', required: true, defaultValue: 'user-1' },
+    ],
+  },
+  {
+    id: 'createAppToken',
+    name: 'Create App Token',
+    description: 'Create app token for app-scoped integration',
+    params: [
+      { key: 'appId', label: 'App ID', type: 'text', required: true, defaultValue: process.env.NEXT_PUBLIC_ETHORA_CHAT_APP_ID || '' },
+      { key: 'label', label: 'Label (optional)', type: 'text', required: false, defaultValue: 'playground-token' },
+    ],
+  },
+  {
+    id: 'createChatUserJwtToken',
+    name: 'Create Chat User JWT Token',
+    description: 'Build runtime user token for a userId',
+    params: [
+      { key: 'userId', label: 'User ID', type: 'text', required: true, defaultValue: 'user-1' },
+    ],
+  },
+
 ];
 
 export default function SDKTestingPanel({ onExecute, token, baseUrl }: SDKTestingPanelProps) {
@@ -258,6 +303,10 @@ export default function SDKTestingPanel({ onExecute, token, baseUrl }: SDKTestin
         generated[param.key] = `chat-${timestamp}-${randomId}`;
       } else if (param.key === 'userId') {
         generated[param.key] = `user-${timestamp}-${randomId}`;
+      } else if (param.key === 'appId') {
+        generated[param.key] = process.env.NEXT_PUBLIC_ETHORA_CHAT_APP_ID || '';
+      } else if (param.key === 'jobId') {
+        generated[param.key] = `job-${timestamp}-${randomId}`;
       } else if (param.key === 'title') {
         generated[param.key] = `Chat Room ${timestamp}`;
       } else if (param.key === 'email') {
@@ -295,14 +344,19 @@ export default function SDKTestingPanel({ onExecute, token, baseUrl }: SDKTestin
         generated[param.key] = true;
       } else if (param.key === 'chatName') {
         generated[param.key] = `chat-${timestamp}`;
+      } else if (param.key === 'xmppUsername') {
+        generated[param.key] = `user-${timestamp}-${randomId}`;
+      } else if (param.key === 'label') {
+        generated[param.key] = `playground-token-${timestamp}`;
       } else if (param.key === 'members') {
         generated[param.key] = `user-1,user-2`;
       } else if (param.key === 'data' && selectedMethod === 'sendPushToUser') {
         generated[param.key] = JSON.stringify(
           {
-            title: 'Hello',
-            message: 'This is a push notification',
-            sound: 'default',
+            jid: '<chat_username>',
+            text: '<description>',
+            title: '<title>',
+            ttl: 3600,
           },
           null,
           2
@@ -454,12 +508,12 @@ export default function SDKTestingPanel({ onExecute, token, baseUrl }: SDKTestin
         params = {};
         if (formData.chatName) params.chatName = formData.chatName;
         if (formData.xmppUsername) params.xmppUsername = formData.xmppUsername;
-        if (formData.page !== undefined && formData.page !== null && formData.page !== '' && !isNaN(Number(formData.page)) && Number(formData.page) > 0) {
-          params.page = Number(formData.page);
+        if (formData.userId) params.userId = formData.userId;
+        if (formData.limit !== undefined && formData.limit !== null && formData.limit !== '' && !isNaN(Number(formData.limit)) && Number(formData.limit) > 0) {
+          params.limit = Number(formData.limit);
         }
-        if (formData.pageSize !== undefined && formData.pageSize !== null && formData.pageSize !== '' && !isNaN(Number(formData.pageSize)) && Number(formData.pageSize) > 0) {
-          const pageSizeNum = Number(formData.pageSize);
-          params.pageSize = pageSizeNum;
+        if (formData.offset !== undefined && formData.offset !== null && formData.offset !== '' && !isNaN(Number(formData.offset)) && Number(formData.offset) >= 0) {
+          params.offset = Number(formData.offset);
         }
         console.log('getUsers params before send:', JSON.stringify(params, null, 2));
       } else if (selectedMethod === 'grantUserAccessToChatRoom') {
@@ -502,7 +556,7 @@ export default function SDKTestingPanel({ onExecute, token, baseUrl }: SDKTestin
         params.userId = members.length > 1 ? members : members[0];
       } else if (selectedMethod === 'sendPushToUser') {
         params = {
-          userId: formData.userId,
+          appId: formData.appId,
           data: JSON.parse(formData.data || '{}'),
         };
       } else if (selectedMethod === 'updateChatRoom') {
@@ -522,9 +576,47 @@ export default function SDKTestingPanel({ onExecute, token, baseUrl }: SDKTestin
             includeMembers: !!formData.includeMembers,
           },
         };
-      } else if (selectedMethod === 'grantChatbotAccessToChatRoom') {
+      } else if (selectedMethod === 'getUserChatsInApp') {
+        params = {
+          appId: formData.appId,
+          userId: formData.userId,
+          params: {
+            limit: formData.limit ? Number(formData.limit) : 50,
+            offset: formData.offset ? Number(formData.offset) : 0,
+            includeMembers: !!formData.includeMembers,
+          },
+        };
+      } else if (selectedMethod === 'listChatsInApp') {
+        params = {
+          appId: formData.appId,
+          params: {
+            limit: formData.limit ? Number(formData.limit) : 50,
+            offset: formData.offset ? Number(formData.offset) : 0,
+            includeMembers: !!formData.includeMembers,
+          },
+        };
+      } else if (selectedMethod === 'getUsersBatchJob') {
+        params = {
+          appId: formData.appId,
+          jobId: formData.jobId,
+        };
+      } else if (selectedMethod === 'getAppUserByXmppUsername') {
+        params = {
+          xmppUsername: formData.xmppUsername,
+        };
+      } else if (selectedMethod === 'createAppToken') {
+        params = {
+          appId: formData.appId,
+          ...(formData.label && { label: formData.label }),
+        };
+      } else if (selectedMethod === 'createChatUserJwtToken') {
+        params = {
+          userId: formData.userId,
+        };
+      } else if (selectedMethod === 'buildChatRoomIdentifier') {
         params = {
           chatId: formData.chatId,
+          full: !!formData.full,
         };
       }
 
@@ -536,7 +628,8 @@ export default function SDKTestingPanel({ onExecute, token, baseUrl }: SDKTestin
       // Add placeholder for x-custom-token for server-to-server methods
       // The actual token will be updated after the request completes
       if (['updateUsers', 'createUser', 'getUsers', 'deleteUsers', 'createChatRoom', 'removeUserAccessFromChatRoom',
-           'deleteChatRoom', 'grantUserAccessToChatRoom', 'sendPushToUser'].includes(selectedMethod)) {
+           'deleteChatRoom', 'grantUserAccessToChatRoom', 'sendPushToUser', 'updateChatRoom', 'getUserChats',
+           'getUserChatsInApp', 'getUsersBatchJob', 'getAppUserByXmppUsername', 'createAppToken', 'listChatsInApp'].includes(selectedMethod)) {
         headers['x-custom-token'] = 'Generating...';
       }
 
@@ -686,6 +779,13 @@ export default function SDKTestingPanel({ onExecute, token, baseUrl }: SDKTestin
           errorParams = {};
           if (formData.chatName) errorParams.chatName = formData.chatName;
           if (formData.xmppUsername) errorParams.xmppUsername = formData.xmppUsername;
+          if (formData.userId) errorParams.userId = formData.userId;
+          if (formData.limit !== undefined && formData.limit !== null && formData.limit !== '' && !isNaN(Number(formData.limit)) && Number(formData.limit) > 0) {
+            errorParams.limit = Number(formData.limit);
+          }
+          if (formData.offset !== undefined && formData.offset !== null && formData.offset !== '' && !isNaN(Number(formData.offset)) && Number(formData.offset) >= 0) {
+            errorParams.offset = Number(formData.offset);
+          }
         } else if (selectedMethod === 'grantUserAccessToChatRoom') {
           errorParams = {
             chatId: formData.chatId,
@@ -725,6 +825,57 @@ export default function SDKTestingPanel({ onExecute, token, baseUrl }: SDKTestin
           errorParams = {
             chatId: formData.chatId,
             userId: members.length > 1 ? members : members[0],
+          };
+        } else if (selectedMethod === 'getUserChats') {
+          errorParams = {
+            userId: formData.userId,
+            params: {
+              limit: formData.limit ? Number(formData.limit) : 50,
+              offset: formData.offset ? Number(formData.offset) : 0,
+              includeMembers: !!formData.includeMembers,
+            },
+          };
+        } else if (selectedMethod === 'getUserChatsInApp') {
+          errorParams = {
+            appId: formData.appId,
+            userId: formData.userId,
+            params: {
+              limit: formData.limit ? Number(formData.limit) : 50,
+              offset: formData.offset ? Number(formData.offset) : 0,
+              includeMembers: !!formData.includeMembers,
+            },
+          };
+        } else if (selectedMethod === 'listChatsInApp') {
+          errorParams = {
+            appId: formData.appId,
+            params: {
+              limit: formData.limit ? Number(formData.limit) : 50,
+              offset: formData.offset ? Number(formData.offset) : 0,
+              includeMembers: !!formData.includeMembers,
+            },
+          };
+        } else if (selectedMethod === 'getUsersBatchJob') {
+          errorParams = {
+            appId: formData.appId,
+            jobId: formData.jobId,
+          };
+        } else if (selectedMethod === 'getAppUserByXmppUsername') {
+          errorParams = {
+            xmppUsername: formData.xmppUsername,
+          };
+        } else if (selectedMethod === 'createAppToken') {
+          errorParams = {
+            appId: formData.appId,
+            ...(formData.label && { label: formData.label }),
+          };
+        } else if (selectedMethod === 'createChatUserJwtToken') {
+          errorParams = {
+            userId: formData.userId,
+          };
+        } else if (selectedMethod === 'buildChatRoomIdentifier') {
+          errorParams = {
+            chatId: formData.chatId,
+            full: !!formData.full,
           };
         }
       } catch {
@@ -788,12 +939,12 @@ export default function SDKTestingPanel({ onExecute, token, baseUrl }: SDKTestin
         params = {};
         if (formData.chatName) params.chatName = formData.chatName;
         if (formData.xmppUsername) params.xmppUsername = formData.xmppUsername;
-        if (formData.page !== undefined && formData.page !== null && formData.page !== '' && !isNaN(Number(formData.page)) && Number(formData.page) > 0) {
-          params.page = Number(formData.page);
+        if (formData.userId) params.userId = formData.userId;
+        if (formData.limit !== undefined && formData.limit !== null && formData.limit !== '' && !isNaN(Number(formData.limit)) && Number(formData.limit) > 0) {
+          params.limit = Number(formData.limit);
         }
-        if (formData.pageSize !== undefined && formData.pageSize !== null && formData.pageSize !== '' && !isNaN(Number(formData.pageSize)) && Number(formData.pageSize) > 0) {
-          const pageSizeNum = Number(formData.pageSize);
-          params.pageSize = pageSizeNum;
+        if (formData.offset !== undefined && formData.offset !== null && formData.offset !== '' && !isNaN(Number(formData.offset)) && Number(formData.offset) >= 0) {
+          params.offset = Number(formData.offset);
         }
       } else if (selectedMethod === 'grantUserAccessToChatRoom') {
         params = {
@@ -855,9 +1006,47 @@ export default function SDKTestingPanel({ onExecute, token, baseUrl }: SDKTestin
             includeMembers: !!formData.includeMembers,
           },
         };
-      } else if (selectedMethod === 'grantChatbotAccessToChatRoom') {
+      } else if (selectedMethod === 'getUserChatsInApp') {
+        params = {
+          appId: formData.appId,
+          userId: formData.userId,
+          params: {
+            limit: formData.limit ? Number(formData.limit) : 50,
+            offset: formData.offset ? Number(formData.offset) : 0,
+            includeMembers: !!formData.includeMembers,
+          },
+        };
+      } else if (selectedMethod === 'listChatsInApp') {
+        params = {
+          appId: formData.appId,
+          params: {
+            limit: formData.limit ? Number(formData.limit) : 50,
+            offset: formData.offset ? Number(formData.offset) : 0,
+            includeMembers: !!formData.includeMembers,
+          },
+        };
+      } else if (selectedMethod === 'getUsersBatchJob') {
+        params = {
+          appId: formData.appId,
+          jobId: formData.jobId,
+        };
+      } else if (selectedMethod === 'getAppUserByXmppUsername') {
+        params = {
+          xmppUsername: formData.xmppUsername,
+        };
+      } else if (selectedMethod === 'createAppToken') {
+        params = {
+          appId: formData.appId,
+          ...(formData.label && { label: formData.label }),
+        };
+      } else if (selectedMethod === 'createChatUserJwtToken') {
+        params = {
+          userId: formData.userId,
+        };
+      } else if (selectedMethod === 'buildChatRoomIdentifier') {
         params = {
           chatId: formData.chatId,
+          full: !!formData.full,
         };
       } else {
         params = formData;
