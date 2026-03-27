@@ -10,7 +10,6 @@ export const ChatMemo: FC<Props> = ({ roomJID, config }) => {
   return useMemo(
     () => (
       <Fragment>
-        {/* @ts-expect-error eslint-disable-next-line @typescript-eslint/ban-ts-comment */}
         <EthoraChat roomJID={roomJID} config={config} />
       </Fragment>
     ),

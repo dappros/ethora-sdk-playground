@@ -185,8 +185,16 @@ const HTTP_METHODS: HTTPMethod[] = [
 ];
 
 export default function HTTPTestingPanel() {
+  const buildMethodDefaults = (method: HTTPMethod): Record<string, any> =>
+    method.params.reduce((acc, param) => {
+      if (param.defaultValue !== undefined) {
+        acc[param.key] = param.defaultValue;
+      }
+      return acc;
+    }, {} as Record<string, any>);
+
   const [selectedMethodId, setSelectedMethodId] = useState(HTTP_METHODS[0].id);
-  const [formData, setFormData] = useState<Record<string, any>>({});
+  const [formData, setFormData] = useState<Record<string, any>>(() => buildMethodDefaults(HTTP_METHODS[0]));
   const [customUrl, setCustomUrl] = useState<string>('');
   const [useCustomUrl, setUseCustomUrl] = useState<boolean>(false);
   const [appId, setAppId] = useState<string>(process.env.NEXT_PUBLIC_ETHORA_CHAT_APP_ID || '');
@@ -383,10 +391,10 @@ export default function HTTPTestingPanel() {
       }
     } else {
       const queryParams = new URLSearchParams();
-      Object.entries(formData).forEach(([key, value]) => {
-        // Only add to query params if not part of the path
-        if (value !== undefined && value !== '' && !currentMethod.path.includes(`{${key}}`)) {
-          queryParams.append(key, String(value));
+      currentMethod.params.forEach((param) => {
+        const value = formData[param.key] ?? param.defaultValue;
+        if (value !== undefined && value !== null && value !== '' && !currentMethod.path.includes(`{${param.key}}`)) {
+          queryParams.append(param.key, String(value));
         }
       });
       const queryString = queryParams.toString();
@@ -512,7 +520,8 @@ export default function HTTPTestingPanel() {
               value={selectedMethodId}
               onChange={(e) => {
                 setSelectedMethodId(e.target.value);
-                setFormData({});
+                const nextMethod = HTTP_METHODS.find((m) => m.id === e.target.value);
+                setFormData(nextMethod ? buildMethodDefaults(nextMethod) : {});
                 setResult(null);
               }}
               className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 transition-all outline-none shadow-sm"
@@ -576,7 +585,7 @@ export default function HTTPTestingPanel() {
                   </label>
                   {param.type === 'select' ? (
                     <select
-                      value={formData[param.key] || param.defaultValue || ''}
+                      value={formData[param.key] ?? param.defaultValue ?? ''}
                       onChange={(e) => handleInputChange(param.key, e.target.value)}
                       className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 transition-all outline-none"
                     >
@@ -585,7 +594,7 @@ export default function HTTPTestingPanel() {
                     </select>
                   ) : param.type === 'textarea' ? (
                     <textarea
-                      value={formData[param.key] || ''}
+                      value={formData[param.key] ?? ''}
                       onChange={(e) => handleInputChange(param.key, e.target.value)}
                       placeholder={param.placeholder || `Enter ${param.label.toLowerCase()}`}
                       required={param.required}
@@ -595,7 +604,7 @@ export default function HTTPTestingPanel() {
                   ) : (
                     <input
                       type={param.type}
-                      value={formData[param.key] || ''}
+                      value={formData[param.key] ?? ''}
                       onChange={(e) => handleInputChange(param.key, e.target.value)}
                       placeholder={param.placeholder || (param.defaultValue ? `Default: ${param.defaultValue}` : `Enter ${param.label.toLowerCase()}`)}
                       required={param.required}

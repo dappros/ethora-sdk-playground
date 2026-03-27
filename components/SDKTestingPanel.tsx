@@ -1352,7 +1352,7 @@ export default function SDKTestingPanel({ onExecute, token, baseUrl }: SDKTestin
                 <div>
                   <input
                     type={param.type}
-                    value={formData[param.key] || ''}
+                    value={formData[param.key] ?? ''}
                     onChange={(e) =>
                       handleInputChange(
                         param.key,
@@ -1474,7 +1474,7 @@ export default function SDKTestingPanel({ onExecute, token, baseUrl }: SDKTestin
               </ul>
             </div>
           )}
-          {error.details && (
+          {Boolean(error.details) && (
             <details className="mt-3">
               <summary className="text-xs text-red-600 dark:text-red-400 cursor-pointer hover:text-red-800 dark:hover:text-red-200">
                 Show technical details

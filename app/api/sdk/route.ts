@@ -294,7 +294,13 @@ export async function POST(request: NextRequest) {
       }
 
       case "getUsers": {
-        // Convert page and pageSize to numbers if they are strings
+        // Normalize pagination params
+        if (params.limit !== undefined) {
+          params.limit = typeof params.limit === 'string' ? Number(params.limit) : params.limit;
+        }
+        if (params.offset !== undefined) {
+          params.offset = typeof params.offset === 'string' ? Number(params.offset) : params.offset;
+        }
         if (params.page !== undefined) {
           params.page = typeof params.page === 'string' ? Number(params.page) : params.page;
         }
@@ -302,13 +308,21 @@ export async function POST(request: NextRequest) {
           params.pageSize = typeof params.pageSize === 'string' ? Number(params.pageSize) : params.pageSize;
         }
 
-        // Validate pageSize if provided (max 500)
-        if (params.pageSize !== undefined && params.pageSize !== null) {
-          if (typeof params.pageSize !== 'number' || isNaN(params.pageSize) || params.pageSize <= 0 || params.pageSize > 500) {
+        // Backward compatibility: map page/pageSize to limit/offset if provided
+        if ((params.limit === undefined || params.limit === null) && params.pageSize !== undefined && params.pageSize !== null) {
+          params.limit = params.pageSize;
+        }
+        if ((params.offset === undefined || params.offset === null) && params.page !== undefined && params.page !== null && params.pageSize !== undefined && params.pageSize !== null) {
+          params.offset = (params.page - 1) * params.pageSize;
+        }
+
+        // Validate limit if provided (max 500)
+        if (params.limit !== undefined && params.limit !== null) {
+          if (typeof params.limit !== 'number' || isNaN(params.limit) || params.limit <= 0 || params.limit > 500) {
             const error = createSDKError(
-              "Invalid pageSize: must be a number between 1 and 500",
+              "Invalid limit: must be a number between 1 and 500",
               "INVALID_PARAMS",
-              ["pageSize must be between 1 and 500", "Default pageSize is 100 if not provided"]
+              ["limit must be between 1 and 500", "Default limit is 100 if not provided"]
             );
             return NextResponse.json(
               { error: error.message, suggestions: error.suggestions, code: error.code },
@@ -317,13 +331,13 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // Validate page if provided
-        if (params.page !== undefined && params.page !== null) {
-          if (typeof params.page !== 'number' || isNaN(params.page) || params.page <= 0) {
+        // Validate offset if provided
+        if (params.offset !== undefined && params.offset !== null) {
+          if (typeof params.offset !== 'number' || isNaN(params.offset) || params.offset < 0) {
             const error = createSDKError(
-              "Invalid page: must be a positive number",
+              "Invalid offset: must be a non-negative number",
               "INVALID_PARAMS",
-              ["page must be a positive number (1, 2, 3, ...)"]
+              ["offset must be 0 or greater"]
             );
             return NextResponse.json(
               { error: error.message, suggestions: error.suggestions, code: error.code },
@@ -332,25 +346,50 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // Auto-prefix xmppUsername if appId is available and prefix is missing
-        if (appId && params.xmppUsername && typeof params.xmppUsername === 'string' && !params.xmppUsername.startsWith(appId)) {
-          console.log(`[SDK Proxy] Auto-prefixing xmppUsername: ${params.xmppUsername} -> ${appId}_${params.xmppUsername}`);
-          params.xmppUsername = `${appId}_${params.xmppUsername}`;
+        // Normalize xmpp filter: explicit xmppUsername has priority, then userId fallback.
+        let normalizedXmppUsername: string | undefined;
+        if (typeof params.xmppUsername === "string" && params.xmppUsername.trim()) {
+          normalizedXmppUsername = params.xmppUsername.trim();
+        } else if (typeof params.userId === "string" && params.userId.trim()) {
+          normalizedXmppUsername = appId ? `${appId}_${params.userId.trim()}` : params.userId.trim();
         }
 
-        // Build filter object with pagination
-        const filter: any = {};
-        if (params.chatName) filter.chatName = params.chatName;
-        if (params.xmppUsername) filter.xmppUsername = params.xmppUsername;
-        if (params.page !== undefined && params.page !== null) filter.page = params.page;
-        if (params.pageSize !== undefined && params.pageSize !== null) filter.pageSize = params.pageSize;
+        // If xmppUsername is provided without app prefix (no underscore), auto-prefix using appId.
+        if (
+          appId &&
+          normalizedXmppUsername &&
+          !normalizedXmppUsername.includes("_")
+        ) {
+          console.log(
+            `[SDK Proxy] Auto-prefixing xmppUsername: ${normalizedXmppUsername} -> ${appId}_${normalizedXmppUsername}`
+          );
+          normalizedXmppUsername = `${appId}_${normalizedXmppUsername}`;
+        }
 
-        console.log('getUsers filter:', JSON.stringify(filter, null, 2));
+        const query = new URLSearchParams();
+        if (params.chatName) query.set("chatName", String(params.chatName));
+        if (normalizedXmppUsername) query.set("xmppUsername", normalizedXmppUsername);
+        if (params.limit !== undefined && params.limit !== null) query.set("limit", String(params.limit));
+        if (params.offset !== undefined && params.offset !== null) query.set("offset", String(params.offset));
 
-        (sdk as any).lastUrl = `${apiBaseUrl}/v2/chats/users`;
-        result = await sdk.getUsers(
-          Object.keys(filter).length > 0 ? filter : undefined
-        );
+        const queryString = query.toString();
+        const endpoint = `${apiBaseUrl}/v2/chats/users${queryString ? `?${queryString}` : ""}`;
+        const token = generateServerToken();
+        (sdk as any).lastUrl = endpoint;
+
+        console.log("getUsers query:", endpoint);
+
+        const response = await fetch(endpoint, {
+          method: "GET",
+          headers: createB2BHeaders(token),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throwHttpError(response, endpoint, errorData);
+        }
+
+        result = await response.json();
         break;
       }
 
@@ -594,11 +633,11 @@ export async function POST(request: NextRequest) {
           const baseUrl = (process.env.ETHORA_CHAT_API_URL || 'https://api.ethoradev.com').replace(/\/$/, '');
           const token = generateServerToken();
           const query = new URLSearchParams();
-          if (params.params?.limit) query.set('limit', params.params.limit.toString());
-          if (params.params?.offset) query.set('offset', params.params.offset.toString());
+          if (params.params?.limit !== undefined) query.set('limit', params.params.limit.toString());
+          if (params.params?.offset !== undefined) query.set('offset', params.params.offset.toString());
           if (params.params?.includeMembers) query.set('includeMembers', 'true');
-          
-          const endpoint = `${baseUrl}/v2/apps/${appId}/users/${targetUserId}/chats?${query.toString()}`;
+          const queryString = query.toString();
+          const endpoint = `${baseUrl}/v2/apps/${appId}/users/${targetUserId}/chats${queryString ? `?${queryString}` : ''}`;
           (sdk as any).lastUrl = endpoint;
           
           const response = await fetch(endpoint, {
