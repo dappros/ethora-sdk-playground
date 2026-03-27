@@ -20,9 +20,11 @@ interface APIError {
   suggestions?: string[];
   code?: string;
   field?: string;
-  details?: string;
+  details?: unknown;
   url?: string;
   requestUrl?: string;
+  status?: number;
+  requestId?: string;
 }
 
 interface SDKParam {
@@ -244,6 +246,95 @@ export default function SDKTestingPanel({ onExecute, token, baseUrl }: SDKTestin
   const [exportFormat, setExportFormat] = useState<ExportFormat>('sdk');
 
   const currentMethod = SDK_METHODS.find((m) => m.id === selectedMethod);
+
+  const normalizeErrorPayload = (rawError: unknown): APIError => {
+    const defaultSuggestions = [
+      'Check that all required fields are filled',
+      'Verify the data format is correct',
+      'Review the error message for specific issues',
+    ];
+
+    if (rawError instanceof Error) {
+      const err = rawError as Error & {
+        suggestions?: string[];
+        code?: string;
+        field?: string;
+        details?: unknown;
+        url?: string;
+        requestUrl?: string;
+        status?: number;
+        requestId?: string;
+        responseData?: unknown;
+        backendResponse?: unknown;
+        data?: unknown;
+      };
+
+      const nested =
+        (err.responseData && typeof err.responseData === 'object' ? err.responseData : undefined) ||
+        (err.backendResponse && typeof err.backendResponse === 'object' ? err.backendResponse : undefined) ||
+        (err.data && typeof err.data === 'object' ? err.data : undefined);
+      const nestedObj = (nested || {}) as Record<string, any>;
+
+      return {
+        error: nestedObj.error || nestedObj.message || err.message || 'An unexpected error occurred',
+        suggestions: err.suggestions || nestedObj.suggestions,
+        code: err.code || nestedObj.code,
+        field: err.field || nestedObj.field,
+        details: err.details ?? nestedObj.details ?? nestedObj,
+        url: err.url || nestedObj.url,
+        requestUrl: err.requestUrl || nestedObj.requestUrl,
+        status: err.status || nestedObj.status,
+        requestId: err.requestId || nestedObj.requestId,
+      };
+    }
+
+    if (rawError && typeof rawError === 'object') {
+      const errObj = rawError as Record<string, any>;
+      const nested =
+        (errObj.responseData && typeof errObj.responseData === 'object' ? errObj.responseData : undefined) ||
+        (errObj.backendResponse && typeof errObj.backendResponse === 'object' ? errObj.backendResponse : undefined);
+      const nestedObj = (nested || {}) as Record<string, any>;
+
+      return {
+        error:
+          errObj.error ||
+          errObj.message ||
+          nestedObj.error ||
+          nestedObj.message ||
+          'An unexpected error occurred',
+        suggestions: errObj.suggestions || nestedObj.suggestions,
+        code: errObj.code || nestedObj.code,
+        field: errObj.field || nestedObj.field,
+        details: errObj.details ?? nestedObj.details ?? (Object.keys(nestedObj).length > 0 ? nestedObj : undefined),
+        url: errObj.url || nestedObj.url,
+        requestUrl: errObj.requestUrl || nestedObj.requestUrl,
+        status: errObj.status || nestedObj.status,
+        requestId: errObj.requestId || nestedObj.requestId,
+      };
+    }
+
+    return {
+      error: String(rawError) || 'An unexpected error occurred',
+      suggestions: defaultSuggestions,
+    };
+  };
+
+  const buildErrorHeadline = (apiError: APIError): string => {
+    const detailsObj =
+      apiError.details && typeof apiError.details === 'object'
+        ? (apiError.details as Record<string, any>)
+        : null;
+
+    if (detailsObj?.expected && detailsObj?.actual) {
+      return `${apiError.error} (expected: ${detailsObj.expected}, actual: ${detailsObj.actual})`;
+    }
+
+    if (detailsObj?.tokenType && detailsObj?.authFlow) {
+      return `${apiError.error} (${detailsObj.tokenType}, flow: ${detailsObj.authFlow})`;
+    }
+
+    return apiError.error;
+  };
 
   const handleMethodChange = (methodId: string) => {
     const nextMethod = SDK_METHODS.find(m => m.id === methodId);
@@ -702,6 +793,10 @@ export default function SDKTestingPanel({ onExecute, token, baseUrl }: SDKTestin
       const endTime = Date.now();
       const elapsed = endTime - startTime;
       setResponseTime(elapsed);
+      const displayError = normalizeErrorPayload(err);
+      const statusText = displayError.status
+        ? `${displayError.status}`
+        : 'Error';
 
       // Log error
       const errorLog: LogEntry = {
@@ -709,60 +804,18 @@ export default function SDKTestingPanel({ onExecute, token, baseUrl }: SDKTestin
         timestamp: Date.now(),
         type: 'error',
         method: selectedMethod,
-        data: err instanceof Error ? { message: err.message, stack: err.stack } : err,
+        data: err,
+        status: displayError.status,
         responseTime: elapsed,
         headers: {
-          'Status': 'Error',
+          'Status': statusText,
           'Content-Type': 'application/json',
         },
       };
       setLogs((prev) => [errorLog, ...prev.slice(0, 49)]);
 
-      // Parse structured error response
-      let displayError: APIError;
-
-      if (err instanceof Error) {
-        const errorWithExtras = err as Error & {
-          suggestions?: string[];
-          code?: string;
-          field?: string;
-          details?: string;
-          url?: string;
-          requestUrl?: string;
-        };
-        displayError = {
-          error: errorWithExtras.message,
-          suggestions: errorWithExtras.suggestions,
-          code: errorWithExtras.code,
-          field: errorWithExtras.field,
-          details: errorWithExtras.details,
-          url: errorWithExtras.url,
-          requestUrl: errorWithExtras.requestUrl,
-        };
-      } else if (err && typeof err === 'object') {
-        const errObj = err as any;
-        displayError = {
-          error: errObj.error || errObj.message || 'An unexpected error occurred',
-          suggestions: errObj.suggestions,
-          code: errObj.code,
-          field: errObj.field,
-          details: typeof errObj.details === 'object' ? JSON.stringify(errObj.details, null, 2) : errObj.details,
-          url: errObj.url,
-          requestUrl: errObj.requestUrl,
-        };
-      } else {
-        displayError = {
-          error: String(err) || 'An unexpected error occurred',
-        };
-      }
-
       setError({
         ...displayError,
-        suggestions: displayError.suggestions || [
-          'Check that all required fields are filled',
-          'Verify the data format is correct',
-          'Review the error message for specific issues',
-        ],
       });
 
       // Save failed request to history - reconstruct params from formData
@@ -1381,7 +1434,9 @@ export default function SDKTestingPanel({ onExecute, token, baseUrl }: SDKTestin
       {error && (
         <div className="mt-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
           <div className="flex items-start justify-between mb-2">
-            <h3 className="text-red-800 dark:text-red-200 font-semibold">Error</h3>
+            <h3 className="text-red-800 dark:text-red-200 font-semibold">
+              {error.status ? `Error ${error.status}` : 'Error'}
+            </h3>
             <button
               onClick={() => setError(null)}
               className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200 text-lg leading-none"
@@ -1395,10 +1450,16 @@ export default function SDKTestingPanel({ onExecute, token, baseUrl }: SDKTestin
               <span className="font-bold mr-1 uppercase">URL:</span> {error.url || error.requestUrl}
             </div>
           )}
-          <p className="text-red-600 dark:text-red-300 text-sm mb-3">{error.error}</p>
+          <p className="text-red-600 dark:text-red-300 text-sm mb-3">{buildErrorHeadline(error)}</p>
           {error.code && (
             <p className="text-xs text-red-500 dark:text-red-400 mb-3">
               Error Code: <code className="bg-red-100 dark:bg-red-900/30 px-1 rounded">{error.code}</code>
+            </p>
+          )}
+          {(error.status || error.requestId) && (
+            <p className="text-xs text-red-500 dark:text-red-400 mb-3">
+              {error.status ? <>Status: <code className="bg-red-100 dark:bg-red-900/30 px-1 rounded mr-2">{error.status}</code></> : null}
+              {error.requestId ? <>Request ID: <code className="bg-red-100 dark:bg-red-900/30 px-1 rounded">{error.requestId}</code></> : null}
             </p>
           )}
           {error.suggestions && error.suggestions.length > 0 && (
@@ -1419,7 +1480,9 @@ export default function SDKTestingPanel({ onExecute, token, baseUrl }: SDKTestin
                 Show technical details
               </summary>
               <pre className="mt-2 p-2 bg-red-100 dark:bg-red-900/30 rounded text-xs font-mono text-red-800 dark:text-red-200 overflow-x-auto">
-                {error.details}
+                {typeof error.details === 'string'
+                  ? error.details
+                  : JSON.stringify(error.details, null, 2)}
               </pre>
             </details>
           )}

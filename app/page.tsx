@@ -9,6 +9,7 @@ import AutoTestPanel from '@/components/AutoTestPanel';
 import HTTPTestingPanel from '@/components/HTTPTestingPanel';
 import { defaultSettings, type PlaygroundSettings } from '@/lib/chat-config';
 import { generateCodeSnippet } from '@/lib/code-generator';
+import { normalizeApiError, parseResponsePayload, formatApiErrorMessage } from '@/lib/api-error';
 
 type Tab = 'chat' | 'sdk' | 'auto' | 'http';
 
@@ -82,8 +83,16 @@ export default function Home() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to setup chat');
+        const errorData = await parseResponsePayload(response);
+        const normalized = normalizeApiError(
+          {
+            ...(typeof errorData === 'object' && errorData !== null ? errorData : { error: String(errorData) }),
+            status: response.status,
+            statusText: response.statusText,
+          },
+          'Failed to setup chat'
+        );
+        throw new Error(formatApiErrorMessage(normalized));
       }
 
       const data = await response.json();
@@ -143,12 +152,19 @@ export default function Home() {
     }
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({
-        error: 'Failed to parse error response',
-      }));
-      
-      // Throw the raw error data so the caller can see the full SDK/API response
-      throw errorData;
+      const errorData = await parseResponsePayload(response);
+      const normalized = normalizeApiError(
+        {
+          ...(typeof errorData === 'object' && errorData !== null ? errorData : { error: String(errorData) }),
+          status: response.status,
+          statusText: response.statusText,
+        },
+        `API error: ${response.status} ${response.statusText}`
+      );
+
+      throw {
+        ...normalized,
+      };
     }
 
     const data = await response.json();

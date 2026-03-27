@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import ResponseLogger, { type LogEntry } from './ResponseLogger';
+import { normalizeApiError, parseResponsePayload } from '@/lib/api-error';
 
 interface HTTPMethod {
   id: string;
@@ -408,10 +409,37 @@ export default function HTTPTestingPanel() {
 
     try {
       const response = await fetch(url, options);
-      const data = await response.json().catch(() => ({ error: 'Failed to parse JSON response' }));
+      const data = await parseResponsePayload(response);
       const endTime = Date.now();
       
       setResponseTime(endTime - startTime);
+
+      if (!response.ok) {
+        const normalized = normalizeApiError(
+          {
+            ...(typeof data === 'object' && data !== null ? data : { error: String(data) }),
+            status: response.status,
+            statusText: response.statusText,
+            url,
+            requestUrl: url,
+          },
+          `HTTP error: ${response.status}`
+        );
+        setResult(normalized);
+
+        const errorLog: LogEntry = {
+          id: `err-${Date.now()}`,
+          timestamp: Date.now(),
+          type: 'error',
+          method: currentMethod.method,
+          url,
+          data: normalized,
+          status: response.status,
+        };
+        setLogs(prev => [errorLog, ...prev.slice(0, 49)]);
+        return;
+      }
+
       setResult(data);
 
       const responseLog: LogEntry = {
@@ -426,13 +454,16 @@ export default function HTTPTestingPanel() {
       setLogs(prev => [responseLog, ...prev.slice(0, 49)]);
     } catch (error: any) {
       console.error('HTTP Error:', error);
+      const normalized = normalizeApiError(error, 'Failed to execute HTTP request');
+      setResult(normalized);
       const errorLog: LogEntry = {
         id: `err-${Date.now()}`,
         timestamp: Date.now(),
         type: 'error',
         method: currentMethod.method,
         url,
-        data: { error: error.message },
+        data: normalized,
+        status: normalized.status,
       };
       setLogs(prev => [errorLog, ...prev.slice(0, 49)]);
     } finally {

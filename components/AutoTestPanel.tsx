@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
+import { formatApiErrorMessage, normalizeApiError } from '@/lib/api-error';
 
 interface AutoTestPanelProps {
   onExecute: (method: string, params: any, files?: File[]) => Promise<any>;
@@ -210,14 +211,9 @@ export default function AutoTestPanel({ onExecute }: AutoTestPanelProps) {
               : item
           )
         );
-        } catch (err: any) {
+      } catch (err: any) {
         const responseTime = Date.now() - startTime;
-        let errorData = err;
-        
-        // If err is a string (legacy), wrap it
-        if (typeof err === 'string') {
-          errorData = { error: err };
-        }
+        const errorData = normalizeApiError(err, 'Auto-test step failed');
         
         setResults((prev) =>
           prev.map((item) =>
@@ -226,7 +222,7 @@ export default function AutoTestPanel({ onExecute }: AutoTestPanelProps) {
                   ...item,
                   status: 'error',
                   responseTime,
-                  error: errorData?.error || errorData?.message || (typeof errorData === 'object' ? JSON.stringify(errorData) : String(errorData)),
+                  error: formatApiErrorMessage(errorData),
                   response: errorData, // Store the full error object as response for inspection
                 }
               : item

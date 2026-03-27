@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { Chat, XmppProvider } from '@ethora/chat-component';
 import type { PlaygroundSettings } from '@/lib/chat-config';
 import { settingsToChatConfig, requiresRemount, getRemountKey } from '@/lib/chat-config';
+import { formatApiErrorMessage, normalizeApiError, parseResponsePayload } from '@/lib/api-error';
 
 interface ChatPreviewProps {
   settings: PlaygroundSettings;
@@ -119,8 +120,16 @@ export default function ChatPreview({ settings, envLoaded = true }: ChatPreviewP
         });
 
         if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to setup chat');
+          const errorData = await parseResponsePayload(response);
+          const normalized = normalizeApiError(
+            {
+              ...(typeof errorData === 'object' && errorData !== null ? errorData : { error: String(errorData) }),
+              status: response.status,
+              statusText: response.statusText,
+            },
+            'Failed to setup chat'
+          );
+          throw new Error(formatApiErrorMessage(normalized));
         }
 
         const data = await response.json();

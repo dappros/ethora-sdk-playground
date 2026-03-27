@@ -86,6 +86,16 @@ export async function POST(request: NextRequest) {
       }
       return headers;
     };
+    const throwHttpError = (response: Response, endpoint: string, errorData: any) => {
+      const message =
+        (errorData && typeof errorData === "object" && ((errorData as any).error || (errorData as any).message)) ||
+        `API error: ${response.status} ${response.statusText}`;
+      const err = new Error(message);
+      (err as any).status = response.status;
+      (err as any).data = errorData;
+      (err as any).url = endpoint;
+      throw err;
+    };
 
     let result: any;
 
@@ -218,7 +228,7 @@ export async function POST(request: NextRequest) {
 
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || `API error: ${response.status}`);
+            throwHttpError(response, endpoint, errorData);
           }
           result = await response.json();
         }
@@ -485,11 +495,7 @@ export async function POST(request: NextRequest) {
           
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            const err = new Error(errorData.error || `API error: ${response.status} ${response.statusText}`);
-            (err as any).status = response.status;
-            (err as any).data = errorData;
-            (err as any).url = endpoint;
-            throw err;
+            throwHttpError(response, endpoint, errorData);
           }
           
           result = await response.json();
@@ -525,11 +531,7 @@ export async function POST(request: NextRequest) {
 
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            const err = new Error(errorData.error || `API error: ${response.status} ${response.statusText}`);
-            (err as any).status = response.status;
-            (err as any).data = errorData;
-            (err as any).url = endpoint;
-            throw err;
+            throwHttpError(response, endpoint, errorData);
           }
 
           result = await response.json();
@@ -567,7 +569,7 @@ export async function POST(request: NextRequest) {
           
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || `API error: ${response.status}`);
+            throwHttpError(response, endpoint, errorData);
           }
           result = await response.json();
         }
@@ -606,7 +608,7 @@ export async function POST(request: NextRequest) {
           
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || `API error: ${response.status}`);
+            throwHttpError(response, endpoint, errorData);
           }
           result = await response.json();
         }
@@ -637,7 +639,7 @@ export async function POST(request: NextRequest) {
           });
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || `API error: ${response.status}`);
+            throwHttpError(response, endpoint, errorData);
           }
           result = await response.json();
         }
@@ -667,7 +669,7 @@ export async function POST(request: NextRequest) {
 
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || `API error: ${response.status}`);
+            throwHttpError(response, endpoint, errorData);
           }
           result = await response.json();
         }
@@ -698,7 +700,7 @@ export async function POST(request: NextRequest) {
 
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || `API error: ${response.status}`);
+            throwHttpError(response, endpoint, errorData);
           }
           result = await response.json();
         }
@@ -729,7 +731,7 @@ export async function POST(request: NextRequest) {
 
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || `API error: ${response.status}`);
+            throwHttpError(response, endpoint, errorData);
           }
           result = await response.json();
         }
@@ -761,7 +763,7 @@ export async function POST(request: NextRequest) {
 
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || `API error: ${response.status}`);
+            throwHttpError(response, endpoint, errorData);
           }
           result = await response.json();
         }
@@ -844,31 +846,54 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error("Error executing SDK method:", error);
 
-    // Log the full error object for server-side debugging
-    console.log("DEBUG: Catch block error structure:", {
-      message: error.message,
-      status: error.status,
-      hasResponse: !!error.response,
-      responseData: error.response?.data
-    });
-
-    // Consolidate information from SDK message and backend response
     const sdkMessage = error instanceof Error ? error.message : "Failed to execute SDK method";
-    const responseData = error.response?.data || error.data || (error.data?.response?.data);
-    const requestUrl = error.config?.url || error.url || error.data?.url;
 
-    return NextResponse.json(
-      { 
-        error: sdkMessage,
-        message: sdkMessage,
-        url: requestUrl,
-        requestUrl: requestUrl,
-        responseData: responseData,
-        backendResponse: responseData,
-        status: error.response?.status || error.status || 500,
-        requestId: responseData?.requestId || error.response?.headers?.['x-request-id']
-      },
-      { status: error.response?.status || error.status || 500 }
-    );
+    const candidatePayloads = [
+      error?.response?.data,
+      error?.data,
+      error?.data?.response?.data,
+      error?.cause?.response?.data,
+      error?.cause?.data,
+      error?.backendResponse,
+      error?.responseData,
+    ];
+    const backendPayload = candidatePayloads.find((value) => value !== undefined && value !== null);
+    const structuredPayload =
+      backendPayload && typeof backendPayload === "object" ? backendPayload : undefined;
+
+    const status =
+      error?.response?.status ||
+      error?.status ||
+      (structuredPayload as any)?.status ||
+      500;
+    const requestUrl =
+      error?.config?.url ||
+      error?.url ||
+      (structuredPayload as any)?.url ||
+      (structuredPayload as any)?.requestUrl;
+
+    const normalizedError =
+      (structuredPayload as any)?.error ||
+      (structuredPayload as any)?.message ||
+      sdkMessage;
+
+    const payload = {
+      success: false,
+      error: normalizedError,
+      message: normalizedError,
+      code: (structuredPayload as any)?.code || error?.code,
+      details: (structuredPayload as any)?.details,
+      url: requestUrl,
+      requestUrl,
+      status,
+      requestId:
+        (structuredPayload as any)?.requestId ||
+        error?.requestId ||
+        error?.response?.headers?.["x-request-id"],
+      responseData: structuredPayload || backendPayload,
+      backendResponse: structuredPayload || backendPayload,
+    };
+
+    return NextResponse.json(payload, { status });
   }
 }
