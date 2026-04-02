@@ -27,6 +27,7 @@ import {
   isDeleteUsersAccessParams,
   isRemoveUserAccessFromChatRoomParams,
   isSendPushToUserParams,
+  isSendPushToAllUsersParams,
   createSDKError,
   ERROR_SUGGESTIONS,
 } from "@/lib/sdk-types";
@@ -559,7 +560,43 @@ export async function POST(request: NextRequest) {
         {
           const baseUrl = (process.env.ETHORA_CHAT_API_URL || 'https://api.ethoradev.com').replace(/\/$/, '');
           const token = generateServerToken();
-          const endpoint = `${baseUrl}/v1/push/app/${params.appId}`;
+          const endpoint = `${baseUrl}/v1/push/user/${params.appId}`;
+          (sdk as any).lastUrl = endpoint;
+
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: createB2BHeaders(token, true),
+            body: JSON.stringify(params.data),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throwHttpError(response, endpoint, errorData);
+          }
+
+          result = await response.json();
+        }
+        break;
+      }
+
+      case "sendPushToAllUsers": {
+        if (!isSendPushToAllUsersParams(params)) {
+          const error = createSDKError(
+            "Invalid parameters for sendPushToAllUsers: appId and data are required",
+            "INVALID_PARAMS",
+            ["Provide appId"],
+            "appId"
+          );
+          return NextResponse.json(
+            { error: error.message, suggestions: error.suggestions, code: error.code, field: error.field },
+            { status: 400 }
+          );
+        }
+
+        {
+          const baseUrl = (process.env.ETHORA_CHAT_API_URL || 'https://api.ethoradev.com').replace(/\/$/, '');
+          const token = generateServerToken();
+          const endpoint = `${baseUrl}/v1/push/project/${params.appId}`;
           (sdk as any).lastUrl = endpoint;
 
           const response = await fetch(endpoint, {

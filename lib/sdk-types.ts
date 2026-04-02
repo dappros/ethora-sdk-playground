@@ -321,6 +321,11 @@ export interface SendPushToUserParams {
   data: Record<string, any>;
 }
 
+export interface SendPushToAllUsersParams {
+  appId: string;
+  data: Record<string, any>;
+}
+
 export interface UpdateChatRoomParams {
   chatId: string;
   updateData: UpdateChatRoomData;
@@ -378,6 +383,7 @@ export type SDKMethodName =
   | 'removeUserAccessFromChatRoom'
   | 'deleteUsersAccess'
   | 'sendPushToUser'
+  | 'sendPushToAllUsers'
   | 'updateChatRoom'
   | 'getUserChats'
   | 'getUserChatsInApp'
@@ -427,6 +433,10 @@ export function isRemoveUserAccessFromChatRoomParams(params: any): params is Rem
 }
 
 export function isSendPushToUserParams(params: any): params is SendPushToUserParams {
+  return params && typeof params.appId === 'string' && params.data;
+}
+
+export function isSendPushToAllUsersParams(params: any): params is SendPushToAllUsersParams {
   return params && typeof params.appId === 'string' && params.data;
 }
 

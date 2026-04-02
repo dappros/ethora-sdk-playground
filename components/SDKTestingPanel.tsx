@@ -137,8 +137,8 @@ const SDK_METHODS: SDKMethod[] = [
   },
   {
     id: 'sendPushToUser',
-    name: 'Send Push Notification',
-    description: 'Send a push notification to a user',
+    name: 'Send Push to 1 User',
+    description: 'Send a push notification to 1 app user',
     params: [
       { key: 'appId', label: 'App ID', type: 'text', required: true, defaultValue: process.env.NEXT_PUBLIC_ETHORA_CHAT_APP_ID || '' },
       {
@@ -147,6 +147,21 @@ const SDK_METHODS: SDKMethod[] = [
         type: 'textarea',
         required: true,
         defaultValue: '{\n  "jid": "<chat_username>",\n  "text": "<description>",\n  "title": "<title>",\n  "ttl": 3600\n}',
+      },
+    ],
+  },
+  {
+    id: 'sendPushToAllUsers',
+    name: 'Send Push to All Users',
+    description: 'Send a push notification to all app users',
+    params: [
+      { key: 'appId', label: 'App ID', type: 'text', required: true, defaultValue: process.env.NEXT_PUBLIC_ETHORA_CHAT_APP_ID || '' },
+      {
+        key: 'data',
+        label: 'Notification Data (JSON)',
+        type: 'textarea',
+        required: true,
+        defaultValue: '{\n  "text": "<description>",\n  "title": "<title>",\n  "ttl": 3600\n}',
       },
     ],
   },
@@ -441,17 +456,20 @@ export default function SDKTestingPanel({ onExecute, token, baseUrl }: SDKTestin
         generated[param.key] = `playground-token-${timestamp}`;
       } else if (param.key === 'members') {
         generated[param.key] = `user-1,user-2`;
-      } else if (param.key === 'data' && selectedMethod === 'sendPushToUser') {
-        generated[param.key] = JSON.stringify(
-          {
-            jid: '<chat_username>',
-            text: '<description>',
-            title: '<title>',
-            ttl: 3600,
-          },
-          null,
-          2
-        );
+      } else if (param.key === 'data' && (selectedMethod === 'sendPushToUser' || selectedMethod === 'sendPushToAllUsers')) {
+        const pushData = selectedMethod === 'sendPushToUser' 
+          ? {
+              jid: '<chat_username>',
+              text: '<description>',
+              title: '<title>',
+              ttl: 3600,
+            }
+          : {
+              text: '<description>',
+              title: '<title>',
+              ttl: 3600,
+            };
+        generated[param.key] = JSON.stringify(pushData, null, 2);
       } else if (param.key === 'limit') {
         generated[param.key] = 50;
       } else if (param.key === 'offset') {
@@ -650,6 +668,11 @@ export default function SDKTestingPanel({ onExecute, token, baseUrl }: SDKTestin
           appId: formData.appId,
           data: JSON.parse(formData.data || '{}'),
         };
+      } else if (selectedMethod === 'sendPushToAllUsers') {
+        params = {
+          appId: formData.appId,
+          data: JSON.parse(formData.data || '{}'),
+        };
       } else if (selectedMethod === 'updateChatRoom') {
         params = {
           chatId: formData.chatId,
@@ -719,7 +742,7 @@ export default function SDKTestingPanel({ onExecute, token, baseUrl }: SDKTestin
       // Add placeholder for x-custom-token for server-to-server methods
       // The actual token will be updated after the request completes
       if (['updateUsers', 'createUser', 'getUsers', 'deleteUsers', 'createChatRoom', 'removeUserAccessFromChatRoom',
-           'deleteChatRoom', 'grantUserAccessToChatRoom', 'sendPushToUser', 'updateChatRoom', 'getUserChats',
+           'deleteChatRoom', 'grantUserAccessToChatRoom', 'sendPushToUser', 'sendPushToAllUsers', 'updateChatRoom', 'getUserChats',
            'getUserChatsInApp', 'getUsersBatchJob', 'getAppUserByXmppUsername', 'createAppToken', 'listChatsInApp'].includes(selectedMethod)) {
         headers['x-custom-token'] = 'Generating...';
       }
