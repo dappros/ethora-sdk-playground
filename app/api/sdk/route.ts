@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
     const sdk = getSDKInstance();
     (sdk as any).lastUrl = undefined;
     
-    const apiBaseUrl = (process.env.ETHORA_CHAT_API_URL || 'https://api.ethoradev.com').replace(/\/$/, '');
+    const apiBaseUrl = (process.env.ETHORA_CHAT_API_URL || 'https://api.chat.ethora.com').replace(/\/$/, '');
     const createB2BHeaders = (token: string | null, withJsonContentType = false) => {
       const headers: Record<string, string> = {};
       if (withJsonContentType) {
@@ -213,7 +213,7 @@ export async function POST(request: NextRequest) {
             ),
           };
 
-          const baseUrl = (process.env.ETHORA_CHAT_API_URL || 'https://api.ethoradev.com').replace(/\/$/, '');
+          const baseUrl = (process.env.ETHORA_CHAT_API_URL || 'https://api.chat.ethora.com').replace(/\/$/, '');
           const token = generateServerToken();
           const endpoint = `${baseUrl}/v2/users/batch`;
           (sdk as any).lastUrl = endpoint;
@@ -515,7 +515,7 @@ export async function POST(request: NextRequest) {
           (sdk as any).lastUrl = `${apiBaseUrl}/v2/chats/users-access`;
           result = await (sdk as any).removeUserAccessFromChatRoom(params.chatId, params.userId);
         } else {
-          const baseUrl = (process.env.ETHORA_CHAT_API_URL || 'https://api.ethoradev.com').replace(/\/$/, '');
+          const baseUrl = (process.env.ETHORA_CHAT_API_URL || 'https://api.chat.ethora.com').replace(/\/$/, '');
           const appId = process.env.ETHORA_CHAT_APP_ID || '';
           const token = generateServerToken();
           
@@ -558,7 +558,7 @@ export async function POST(request: NextRequest) {
         }
 
         {
-          const baseUrl = (process.env.ETHORA_CHAT_API_URL || 'https://api.ethoradev.com').replace(/\/$/, '');
+          const baseUrl = (process.env.ETHORA_CHAT_API_URL || 'https://api.chat.ethora.com').replace(/\/$/, '');
           const token = generateServerToken();
           const endpoint = `${baseUrl}/v1/push/user/${params.appId}`;
           (sdk as any).lastUrl = endpoint;
@@ -594,7 +594,7 @@ export async function POST(request: NextRequest) {
         }
 
         {
-          const baseUrl = (process.env.ETHORA_CHAT_API_URL || 'https://api.ethoradev.com').replace(/\/$/, '');
+          const baseUrl = (process.env.ETHORA_CHAT_API_URL || 'https://api.chat.ethora.com').replace(/\/$/, '');
           const token = generateServerToken();
           const endpoint = `${baseUrl}/v1/push/project/${params.appId}`;
           (sdk as any).lastUrl = endpoint;
@@ -632,7 +632,7 @@ export async function POST(request: NextRequest) {
           (sdk as any).lastUrl = `${apiBaseUrl}/v2/apps/${appId}/chats/${params.chatId}`;
           result = await (sdk as any).updateChatRoom(params.chatId, params.updateData);
         } else {
-          const baseUrl = (process.env.ETHORA_CHAT_API_URL || 'https://api.ethoradev.com').replace(/\/$/, '');
+          const baseUrl = (process.env.ETHORA_CHAT_API_URL || 'https://api.chat.ethora.com').replace(/\/$/, '');
           const token = generateServerToken();
           const endpoint = `${baseUrl}/v2/apps/${appId}/chats/${params.chatId}`;
           (sdk as any).lastUrl = endpoint;
@@ -667,7 +667,7 @@ export async function POST(request: NextRequest) {
           (sdk as any).lastUrl = `${apiBaseUrl}/v2/apps/${appId}/users/${targetUserId}/chats`;
           result = await (sdk as any).getUserChats(targetUserId, params.params);
         } else {
-          const baseUrl = (process.env.ETHORA_CHAT_API_URL || 'https://api.ethoradev.com').replace(/\/$/, '');
+          const baseUrl = (process.env.ETHORA_CHAT_API_URL || 'https://api.chat.ethora.com').replace(/\/$/, '');
           const token = generateServerToken();
           const query = new URLSearchParams();
           if (params.params?.limit !== undefined) query.set('limit', params.params.limit.toString());

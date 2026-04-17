@@ -271,13 +271,13 @@ const resolveApiBaseUrl = () => {
   const raw =
     process.env.NEXT_PUBLIC_ETHORA_CHAT_API_URL ||
     process.env.NEXT_PUBLIC_BACKEND_URL ||
-    'https://api.ethoradev.com';
+    'https://api.chat.ethora.com';
   const trimmed = raw.replace(/\/$/, '');
   return trimmed.endsWith('/v1') ? trimmed : `${trimmed}/v1`;
 };
 
 const resolveXmppDevServer = () => {
-  if (typeof process === 'undefined') return 'wss://xmpp.ethoradev.com:5443/ws';
+  if (typeof process === 'undefined') return 'wss://xmpp.chat.ethora.com:5443/ws';
   
   // 1. Try explicit XMPP vars
   const explicit = 
@@ -302,7 +302,7 @@ const resolveXmppDevServer = () => {
     }
   }
   
-  return 'wss://xmpp.ethoradev.com:5443/ws';
+  return 'wss://xmpp.chat.ethora.com:5443/ws';
 };
 
 const resolveXmppHost = (devServer: string) => {
@@ -313,7 +313,7 @@ const resolveXmppHost = (devServer: string) => {
     const url = new URL(devServer);
     return url.hostname;
   } catch {
-    return 'xmpp.ethoradev.com';
+    return 'xmpp.chat.ethora.com';
   }
 };
 
@@ -336,7 +336,7 @@ export const defaultSettings: PlaygroundSettings = {
   theme: 'light',
   qrUrl: typeof process !== 'undefined' && process.env.NEXT_PUBLIC_ETHORA_CHAT_QR_URL
     ? process.env.NEXT_PUBLIC_ETHORA_CHAT_QR_URL
-    : 'https://app.ethoradev.com/app/chat/?qrChatId=',
+    : 'https://app.chat.ethora.com/app/chat/?qrChatId=',
   xmppDevServer: xmppDevServerDefault,
   xmppHost: xmppHostDefault,
   xmppConference: xmppConferenceDefault,
@@ -367,7 +367,7 @@ export const defaultSettings: PlaygroundSettings = {
   // Use environment variable for baseUrl or fall back to default
   baseUrl: typeof process !== 'undefined' && (process.env.NEXT_PUBLIC_ETHORA_CHAT_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL)
     ? `${process.env.NEXT_PUBLIC_ETHORA_CHAT_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL}/v1`
-    : 'https://api.ethoradev.com/v1',
+    : 'https://api.chat.ethora.com/v1',
   enableRoomsRetryHelperText: 'Initializing room',
   blockMessageSendingWhenProcessing: false,
   chatHeaderSettingsHide: false,

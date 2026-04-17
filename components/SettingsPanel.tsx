@@ -267,7 +267,7 @@ export default function SettingsPanel({
             id="xmppDevServer"
             value={settings.xmppDevServer}
             onChange={(value) => handleChange('xmppDevServer', value)}
-            placeholder="wss://xmpp.ethoradev.com:5443/ws"
+            placeholder="wss://xmpp.chat.ethora.com:5443/ws"
           />
         </div>
         <div>
@@ -276,7 +276,7 @@ export default function SettingsPanel({
             id="xmppHost"
             value={settings.xmppHost}
             onChange={(value) => handleChange('xmppHost', value)}
-            placeholder="xmpp.ethoradev.com"
+            placeholder="xmpp.chat.ethora.com"
           />
         </div>
         <div>
@@ -285,7 +285,7 @@ export default function SettingsPanel({
             id="xmppConference"
             value={settings.xmppConference}
             onChange={(value) => handleChange('xmppConference', value)}
-            placeholder="conference.xmpp.ethoradev.com"
+            placeholder="conference.xmpp.chat.ethora.com"
           />
         </div>
         <Checkbox
@@ -624,7 +624,7 @@ export default function SettingsPanel({
             id="baseUrl"
             value={settings.baseUrl}
             onChange={(value) => handleChange('baseUrl', value)}
-            placeholder="https://api.ethoradev.com/v1"
+            placeholder="https://api.chat.ethora.com/v1"
           />
         </div>
         <div>
