@@ -7,7 +7,7 @@ This guide provides a step-by-step walkthrough for integrating Ethora's real-tim
 To begin the integration, you need your Ethora App credentials:
 - **Ethora App ID**: Unique identifier for your application.
 - **Ethora App Secret**: Used for signing JWT tokens in server-to-server communication.
-- **API URL**: Typically `https://api.ethoradev.com`.
+- **API URL**: Typically `https://api.chat.ethora.com`.
 
 ---
 

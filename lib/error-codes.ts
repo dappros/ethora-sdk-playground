@@ -53,7 +53,7 @@ export const ERROR_CODE_MAPPINGS: Record<SDKErrorCode, ErrorCodeMapping> = {
     suggestions: [
       'Check your .env.local file has ETHORA_CHAT_APP_ID set',
       'Verify ETHORA_CHAT_APP_SECRET is configured',
-      'Ensure ETHORA_CHAT_API_URL is correct (defaults to https://api.ethoradev.com)',
+      'Ensure ETHORA_CHAT_API_URL is correct (defaults to https://api.chat.ethora.com)',
       'Restart the development server after changing .env.local',
     ],
     httpStatus: 500,

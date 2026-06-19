@@ -34,3 +34,10 @@ backend
 
 # Deploy-script stamps and npm cache (setup-node-services.sh)
 .ethora_deploy/
+
+# Local developer fixtures that contain pre-generated JWTs / credentials, never commit
+test-users.xlsx
+scripts/build-test-users-xlsx.py
+
+# TypeScript incremental build cache
+tsconfig.tsbuildinfo

@@ -16,7 +16,7 @@ export function getSDKInstance(): ChatRepository {
     // Only set default for API URL, not for APP_ID and APP_SECRET
     // These should be provided by user in .env.local
     if (!process.env.ETHORA_CHAT_API_URL) {
-      process.env.ETHORA_CHAT_API_URL = process.env.NEXT_PUBLIC_ETHORA_CHAT_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'https://api.ethoradev.com';
+      process.env.ETHORA_CHAT_API_URL = process.env.NEXT_PUBLIC_ETHORA_CHAT_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'https://api.chat.ethora.com';
     }
 
     if (!process.env.ETHORA_XMPP_DEV_SERVER) {
@@ -30,7 +30,7 @@ export function getSDKInstance(): ChatRepository {
           const xmppHostname = hostname.startsWith('api.') ? hostname.replace('api.', 'xmpp.') : `xmpp.${hostname}`;
           process.env.ETHORA_XMPP_DEV_SERVER = `wss://${xmppHostname}/ws`;
         } catch {
-          process.env.ETHORA_XMPP_DEV_SERVER = 'wss://xmpp.ethoradev.com:5443/ws';
+          process.env.ETHORA_XMPP_DEV_SERVER = 'wss://xmpp.chat.ethora.com/ws';
         }
       }
     }
@@ -115,7 +115,6 @@ export function generateServerToken(): string | null {
  */
 export function generateClientToken(userId: string): string | null {
   try {
-    // Use dynamic import to avoid issues if jsonwebtoken is not directly available
     const jwt = require('jsonwebtoken');
     const appId = process.env.ETHORA_CHAT_APP_ID;
     const appSecret = process.env.ETHORA_CHAT_APP_SECRET;
@@ -123,6 +122,10 @@ export function generateClientToken(userId: string): string | null {
     if (!appId || !appSecret) {
       return null;
     }
+
+    console.log("userId", userId);
+    console.log("appId", appId);
+    // console.log("appSecret", appSecret);
 
     return jwt.sign(
       {
@@ -133,10 +136,11 @@ export function generateClientToken(userId: string): string | null {
         },
       },
       appSecret,
-      { expiresIn: '1h' }
+      { expiresIn: '72h' }
     ) as string;
   } catch (error) {
     console.error('Error generating server token:', error);
     return null;
   }
 }
+// npx -y tsx --env-file=.env.local scripts/get-token.ts

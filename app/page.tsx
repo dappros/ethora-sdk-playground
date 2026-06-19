@@ -7,18 +7,21 @@ import CodeBlock from '@/components/CodeBlock';
 import SDKTestingPanel from '@/components/SDKTestingPanel';
 import AutoTestPanel from '@/components/AutoTestPanel';
 import HTTPTestingPanel from '@/components/HTTPTestingPanel';
+import ClientRequestPanel from '@/components/ClientRequestPanel';
+import QuickstartPanel from '@/components/QuickstartPanel';
 import { defaultSettings, type PlaygroundSettings } from '@/lib/chat-config';
+import { applyVerticalTemplate, type VerticalTemplate } from '@/lib/vertical-templates';
 import { generateCodeSnippet } from '@/lib/code-generator';
 import { normalizeApiError, parseResponsePayload, formatApiErrorMessage } from '@/lib/api-error';
 
-type Tab = 'chat' | 'sdk' | 'auto' | 'http';
+type Tab = 'quickstart' | 'chat' | 'sdk' | 'auto' | 'http' | 'client';
 
 const ChatPreview = dynamic(() => import('@/components/ChatPreview'), {
   ssr: false,
 });
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<Tab>('chat');
+  const [activeTab, setActiveTab] = useState<Tab>('quickstart');
   const [settings, setSettings] = useState<PlaygroundSettings>(defaultSettings);
   const [isSettingUp, setIsSettingUp] = useState(false);
   const [setupError, setSetupError] = useState<string | null>(null);
@@ -29,6 +32,12 @@ export default function Home() {
   // Update settings when they change
   const handleSettingsChange = (updates: Partial<PlaygroundSettings>) => {
     setSettings((prev) => ({ ...prev, ...updates }));
+  };
+
+  // Quickstart: apply a vertical template and jump to the chat playground.
+  const handleSelectVertical = (template: VerticalTemplate) => {
+    setSettings((prev) => applyVerticalTemplate(template, prev));
+    setActiveTab('chat');
   };
 
   useEffect(() => {
@@ -65,6 +74,9 @@ export default function Home() {
     setSetupError(null);
 
     try {
+      // Generate a unique, throwaway guest identity so the public "no signup"
+      // demo never reuses a real account or collides between visitors.
+      const guestSuffix = Math.random().toString(36).slice(2, 10);
       const response = await fetch('/api/setup', {
         method: 'POST',
         headers: {
@@ -75,9 +87,9 @@ export default function Home() {
           chatId: settings.roomId,
           userData: {
             firstName: 'Playground',
-            lastName: 'User',
-            email: 'yukiraze9@gmail.com',
-            password: 'Qwerty123',
+            lastName: 'Guest',
+            email: `demo-${guestSuffix}@playground.ethora.com`,
+            password: `Demo!${guestSuffix}`,
           },
         }),
       });
@@ -208,10 +220,20 @@ export default function Home() {
 
       {/* Tabs */}
       <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
-        <div className="flex">
+        <div className="flex overflow-x-auto">
+          <button
+            onClick={() => setActiveTab('quickstart')}
+            className={`px-6 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
+              activeTab === 'quickstart'
+                ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+            }`}
+          >
+            Quickstart
+          </button>
           <button
             onClick={() => setActiveTab('chat')}
-            className={`px-6 py-3 text-sm font-medium transition-colors ${
+            className={`px-6 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
               activeTab === 'chat'
                 ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
@@ -249,6 +271,16 @@ export default function Home() {
           >
             HTTP Direct
           </button>
+          <button
+            onClick={() => setActiveTab('client')}
+            className={`px-6 py-3 text-sm font-medium transition-colors ${
+              activeTab === 'client'
+                ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+            }`}
+          >
+            Client Token
+          </button>
         </div>
       </div>
 
@@ -270,7 +302,18 @@ export default function Home() {
       )}
 
       {/* Main Content */}
-      {activeTab === 'chat' ? (
+      {activeTab === 'quickstart' ? (
+        <div className="flex-1 overflow-hidden">
+          <QuickstartPanel
+            onSelectVertical={handleSelectVertical}
+            onLaunchDemo={async () => {
+              await handleSetup();
+              setActiveTab('chat');
+            }}
+            isLaunching={isSettingUp}
+          />
+        </div>
+      ) : activeTab === 'chat' ? (
         <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
           {/* Settings Panel */}
           <aside className="w-full lg:w-96 border-r border-gray-200 dark:border-gray-800 overflow-hidden flex-shrink-0 h-1/2 lg:h-auto">
@@ -303,6 +346,10 @@ export default function Home() {
       ) : activeTab === 'http' ? (
         <div className="flex-1 overflow-hidden">
           <HTTPTestingPanel />
+        </div>
+      ) : activeTab === 'client' ? (
+        <div className="flex-1 overflow-hidden">
+          <ClientRequestPanel />
         </div>
       ) : (
         <div className="flex-1 overflow-hidden">

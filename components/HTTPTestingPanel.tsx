@@ -328,7 +328,7 @@ export default function HTTPTestingPanel() {
       }
     });
 
-    const base = (process.env.NEXT_PUBLIC_ETHORA_CHAT_API_URL || 'https://api.ethoradev.com').replace(/\/$/, '');
+    const base = (process.env.NEXT_PUBLIC_ETHORA_CHAT_API_URL || 'https://api.chat.ethora.com').replace(/\/$/, '');
     return `${base}${path}`;
   }, [currentMethod, formData, appId, useCustomUrl, customUrl]);
 
@@ -360,18 +360,19 @@ export default function HTTPTestingPanel() {
       },
     };
 
-    if (currentMethod.id === 'updateChatMeta') {
-      try {
-        const tokenRes = await fetch('/api/token');
-        if (tokenRes.ok) {
-          const { token } = await tokenRes.json();
-          if (token) {
-            (options.headers as any)['x-custom-token'] = token;
-          }
+    // Direct API endpoints generally require server-to-server auth headers.
+    // Keep both for compatibility with v1/v2 backend auth flows.
+    try {
+      const tokenRes = await fetch('/api/token');
+      if (tokenRes.ok) {
+        const { token } = await tokenRes.json();
+        if (token) {
+          (options.headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
+          (options.headers as Record<string, string>)['x-custom-token'] = token;
         }
-      } catch (err) {
-        console.error('Failed to fetch x-custom-token:', err);
       }
+    } catch (err) {
+      console.error('Failed to fetch auth token:', err);
     }
 
     let finalPayload: any = null;
@@ -508,7 +509,7 @@ export default function HTTPTestingPanel() {
             </div>
             <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
               <span className="font-semibold px-1.5 py-0.5 bg-gray-200 dark:bg-gray-800 rounded">API:</span>
-              <span className="font-mono truncate">{(process.env.NEXT_PUBLIC_ETHORA_CHAT_API_URL || 'https://api.ethoradev.com')}</span>
+              <span className="font-mono truncate">{(process.env.NEXT_PUBLIC_ETHORA_CHAT_API_URL || 'https://api.chat.ethora.com')}</span>
             </div>
           </header>
 

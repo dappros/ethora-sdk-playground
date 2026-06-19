@@ -3,7 +3,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getSDKInstance } from '@/lib/sdk';
+import { getSDKInstance, generateClientToken, generateServerToken } from '@/lib/sdk';
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,8 +17,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const sdk = getSDKInstance();
-    const token = sdk.createChatUserJwtToken(userId);
+    const token = generateClientToken(userId);
+
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Failed to generate client token. Check SDK configuration.' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({ token });
   } catch (error) {
@@ -48,7 +54,6 @@ export async function POST(request: NextRequest) {
 
 export async function GET() {
   try {
-    const { generateServerToken } = require('@/lib/sdk');
     const token = generateServerToken();
     
     if (!token) {
