@@ -31,3 +31,6 @@ dist-ssr
 .backend
 backend
 /backend
+
+# Deploy-script stamps and npm cache (setup-node-services.sh)
+.ethora_deploy/
