@@ -16,7 +16,7 @@ export function getSDKInstance(): ChatRepository {
     // Only set default for API URL, not for APP_ID and APP_SECRET
     // These should be provided by user in .env.local
     if (!process.env.ETHORA_CHAT_API_URL) {
-      process.env.ETHORA_CHAT_API_URL = process.env.NEXT_PUBLIC_ETHORA_CHAT_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'https://api.ethoradev.com';
+      process.env.ETHORA_CHAT_API_URL = process.env.NEXT_PUBLIC_ETHORA_CHAT_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'https://api.chat.ethora.com';
     }
 
     if (!process.env.ETHORA_XMPP_DEV_SERVER) {
@@ -30,7 +30,7 @@ export function getSDKInstance(): ChatRepository {
           const xmppHostname = hostname.startsWith('api.') ? hostname.replace('api.', 'xmpp.') : `xmpp.${hostname}`;
           process.env.ETHORA_XMPP_DEV_SERVER = `wss://${xmppHostname}/ws`;
         } catch {
-          process.env.ETHORA_XMPP_DEV_SERVER = 'wss://xmpp.ethoradev.com:5443/ws';
+          process.env.ETHORA_XMPP_DEV_SERVER = 'wss://xmpp.chat.ethora.com:5443/ws';
         }
       }
     }

@@ -219,7 +219,7 @@ try {
 /**
  * Generate direct API call code (calls Ethora API directly with x-custom-token)
  */
-function generateDirectAPICode(request: RequestData, apiUrl: string = 'https://api.ethoradev.com'): string {
+function generateDirectAPICode(request: RequestData, apiUrl: string = 'https://api.chat.ethora.com'): string {
   const method = request.method;
   const params = request.params;
 

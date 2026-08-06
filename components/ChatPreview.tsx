@@ -200,7 +200,7 @@ export default function ChatPreview({ settings, envLoaded = true }: ChatPreviewP
                 <li>Create .env.local file in playground-nextjs/</li>
                 <li>Set ETHORA_CHAT_APP_ID</li>
                 <li>Set ETHORA_CHAT_APP_SECRET</li>
-                <li>ETHORA_CHAT_API_URL is optional (defaults to https://api.ethoradev.com)</li>
+                <li>ETHORA_CHAT_API_URL is optional (defaults to https://api.chat.ethora.com)</li>
               </ul>
             </div>
           ) : (

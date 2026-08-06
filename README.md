@@ -2,6 +2,8 @@
 
 An interactive Next.js playground for testing and configuring the Ethora SDK and Chat Component.
 
+> **Hosted version:** try it live at **[playground.chat.ethora.com](https://playground.chat.ethora.com)** — no setup required.
+
 **Part of the [Ethora SDK ecosystem](https://github.com/dappros/ethora#ecosystem)** — see all SDKs, tools, and sample apps. Follow cross-SDK updates in the [Release Notes](https://github.com/dappros/ethora/blob/main/RELEASE-NOTES.md).
 
 ## Features
@@ -37,20 +39,22 @@ These variables can be prefixed with `NEXT_PUBLIC_` to be accessible directly by
 
 ```bash
 # API & General
-NEXT_PUBLIC_ETHORA_CHAT_API_URL=https://api.ethoradev.com
-NEXT_PUBLIC_ETHORA_CHAT_QR_URL=https://app.ethora.com/app/chat/?qrChatId=
+NEXT_PUBLIC_ETHORA_CHAT_API_URL=https://api.chat.ethora.com
+NEXT_PUBLIC_ETHORA_CHAT_QR_URL=https://app.chat.ethora.com/app/chat/?qrChatId=
 
 # XMPP Connection
-NEXT_PUBLIC_ETHORA_XMPP_DEV_SERVER=wss://xmpp.ethoradev.com:5443/ws
-NEXT_PUBLIC_ETHORA_XMPP_HOST=xmpp.ethoradev.com
-NEXT_PUBLIC_ETHORA_XMPP_CONFERENCE=conference.xmpp.ethoradev.com
+NEXT_PUBLIC_ETHORA_XMPP_DEV_SERVER=wss://xmpp.chat.ethora.com:5443/ws
+NEXT_PUBLIC_ETHORA_XMPP_HOST=xmpp.chat.ethora.com
+NEXT_PUBLIC_ETHORA_XMPP_CONFERENCE=conference.xmpp.chat.ethora.com
 
 # Defaults for Playground
 ETHORA_CHAT_USER_ID=playground-user-1
 ETHORA_CHAT_ROOM_ID=playground-room-1
 ```
 
-**Important**: Replace `your_app_id` and `your_app_secret` with your actual Ethora app credentials from [ethora.com](https://ethora.com).
+To target the QA environment instead of production, point `NEXT_PUBLIC_ETHORA_CHAT_API_URL` (and the corresponding XMPP variables) at `chat-qa.ethora.com`.
+
+**Important**: Replace `your_app_id` and `your_app_secret` with your actual Ethora app credentials from [app.chat.ethora.com](https://app.chat.ethora.com).
 **Tip**: The Settings panel pre-fills from these variables. If you change `.env.local`, remember to restart the development server.
 
 ### 3. Run the Development Server
