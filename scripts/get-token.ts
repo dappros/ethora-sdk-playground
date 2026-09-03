@@ -5,7 +5,8 @@ import { generateClientToken } from '../lib/sdk';
 // Requires ETHORA_CHAT_APP_ID and ETHORA_CHAT_APP_SECRET in .env.local.
 // Replace the user id below with the one you want a token for.
 async function main() {
-  const userId = process.env.ETHORA_CHAT_USER_ID || '87cf01f3-323a-46ac-8fe4-8ede69b17313';
+  const userId = "user-roman-test1@xmpp.chat-qa.ethora.com"
+  // process.env.ETHORA_CHAT_USER_ID || '87cf01f3-323a-46ac-8fe4-8ede69b17313';
   const token = generateClientToken(userId);
 
   if (token) {
