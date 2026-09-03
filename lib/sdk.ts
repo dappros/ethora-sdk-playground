@@ -81,7 +81,7 @@ export function isSDKConfigured(): boolean {
  * Generate server-to-server JWT token (x-custom-token)
  * This is the same token that the SDK backend uses internally
  */
-export function generateServerToken(): string | null {
+export function generateServerToken(expiresIn: string = '1h'): string | null {
   try {
     // Use dynamic import to avoid issues if jsonwebtoken is not directly available
     const jwt = require('jsonwebtoken');
@@ -100,7 +100,7 @@ export function generateServerToken(): string | null {
         },
       },
       appSecret,
-      { expiresIn: '1h' }
+      { expiresIn }
     ) as string;
   } catch (error) {
     console.error('Error generating server token:', error);

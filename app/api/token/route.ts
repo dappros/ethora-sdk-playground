@@ -52,9 +52,10 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const token = generateServerToken();
+    const ttl = request.nextUrl.searchParams.get('ttl') || undefined;
+    const token = generateServerToken(ttl);
     
     if (!token) {
       return NextResponse.json(
