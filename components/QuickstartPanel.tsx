@@ -79,13 +79,23 @@ export default function QuickstartPanel({
 
           {onLaunchDemo && (
             <div className="mt-6">
-              <button
-                onClick={onLaunchDemo}
-                disabled={isLaunching}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-md text-sm font-semibold transition-colors shadow-sm"
-              >
-                {isLaunching ? 'Starting live demo…' : 'Launch live demo chat'}
-              </button>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                <button
+                  onClick={onLaunchDemo}
+                  disabled={isLaunching}
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-md text-sm font-semibold transition-colors shadow-sm"
+                >
+                  {isLaunching ? 'Starting live demo…' : 'Launch live demo chat'}
+                </button>
+                <a
+                  href="https://calendly.com/taras-f"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-400 text-gray-800 dark:text-gray-200 rounded-md text-sm font-semibold transition-colors shadow-sm"
+                >
+                  Book a call
+                </a>
+              </div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                 Provisions a temporary guest user and room — nothing to sign up for.
               </p>

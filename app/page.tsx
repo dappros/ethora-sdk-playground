@@ -7,14 +7,16 @@ import CodeBlock from '@/components/CodeBlock';
 import SDKTestingPanel from '@/components/SDKTestingPanel';
 import AutoTestPanel from '@/components/AutoTestPanel';
 import HTTPTestingPanel from '@/components/HTTPTestingPanel';
-import ClientRequestPanel from '@/components/ClientRequestPanel';
 import QuickstartPanel from '@/components/QuickstartPanel';
+import AssistantPanel from '@/components/AssistantPanel';
+import ReactNativePanel from '@/components/ReactNativePanel';
 import { defaultSettings, type PlaygroundSettings } from '@/lib/chat-config';
 import { applyVerticalTemplate, type VerticalTemplate } from '@/lib/vertical-templates';
 import { generateCodeSnippet } from '@/lib/code-generator';
 import { normalizeApiError, parseResponsePayload, formatApiErrorMessage } from '@/lib/api-error';
+import { defaultAssistantSettings, type AssistantSettings } from '@/lib/assistant-config';
 
-type Tab = 'quickstart' | 'chat' | 'sdk' | 'auto' | 'http' | 'client';
+type Tab = 'quickstart' | 'chat' | 'assistant' | 'rn' | 'sdk' | 'auto' | 'http';
 
 const ChatPreview = dynamic(() => import('@/components/ChatPreview'), {
   ssr: false,
@@ -23,6 +25,7 @@ const ChatPreview = dynamic(() => import('@/components/ChatPreview'), {
 export default function Home() {
   const [activeTab, setActiveTab] = useState<Tab>('quickstart');
   const [settings, setSettings] = useState<PlaygroundSettings>(defaultSettings);
+  const [assistantSettings, setAssistantSettings] = useState<AssistantSettings>(defaultAssistantSettings);
   const [isSettingUp, setIsSettingUp] = useState(false);
   const [setupError, setSetupError] = useState<string | null>(null);
   const [showCodeBlock, setShowCodeBlock] = useState(false);
@@ -32,6 +35,10 @@ export default function Home() {
   // Update settings when they change
   const handleSettingsChange = (updates: Partial<PlaygroundSettings>) => {
     setSettings((prev) => ({ ...prev, ...updates }));
+  };
+
+  const handleAssistantSettingsChange = (updates: Partial<AssistantSettings>) => {
+    setAssistantSettings((prev) => ({ ...prev, ...updates }));
   };
 
   // Quickstart: apply a vertical template and jump to the chat playground.
@@ -242,6 +249,26 @@ export default function Home() {
             Chat Playground
           </button>
           <button
+            onClick={() => setActiveTab('assistant')}
+            className={`px-6 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
+              activeTab === 'assistant'
+                ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+            }`}
+          >
+            AI Assistant
+          </button>
+          <button
+            onClick={() => setActiveTab('rn')}
+            className={`px-6 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
+              activeTab === 'rn'
+                ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+            }`}
+          >
+            React Native
+          </button>
+          <button
             onClick={() => setActiveTab('sdk')}
             className={`px-6 py-3 text-sm font-medium transition-colors ${
               activeTab === 'sdk'
@@ -270,16 +297,6 @@ export default function Home() {
             }`}
           >
             HTTP Direct
-          </button>
-          <button
-            onClick={() => setActiveTab('client')}
-            className={`px-6 py-3 text-sm font-medium transition-colors ${
-              activeTab === 'client'
-                ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-            }`}
-          >
-            Client Token
           </button>
         </div>
       </div>
@@ -339,6 +356,12 @@ export default function Home() {
             )}
           </main>
         </div>
+      ) : activeTab === 'assistant' ? (
+        <AssistantPanel settings={assistantSettings} onSettingsChange={handleAssistantSettingsChange} />
+      ) : activeTab === 'rn' ? (
+        <div className="flex-1 overflow-hidden">
+          <ReactNativePanel />
+        </div>
       ) : activeTab === 'sdk' ? (
         <div className="flex-1 overflow-hidden">
           <SDKTestingPanel onExecute={handleSDKExecute} token={settings.token} baseUrl={settings.baseUrl} />
@@ -346,10 +369,6 @@ export default function Home() {
       ) : activeTab === 'http' ? (
         <div className="flex-1 overflow-hidden">
           <HTTPTestingPanel />
-        </div>
-      ) : activeTab === 'client' ? (
-        <div className="flex-1 overflow-hidden">
-          <ClientRequestPanel />
         </div>
       ) : (
         <div className="flex-1 overflow-hidden">
