@@ -41,3 +41,7 @@ scripts/build-test-users-xlsx.py
 
 # TypeScript incremental build cache
 tsconfig.tsbuildinfo
+
+# Personal scratch/debug workspace (e.g. one-off snack-sdk scripts + their
+# own node_modules) - never app code, never commit
+.scratch/
