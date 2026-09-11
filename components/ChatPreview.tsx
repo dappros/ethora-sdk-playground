@@ -226,7 +226,7 @@ export default function ChatPreview({ settings, envLoaded = true }: ChatPreviewP
   const XmppProviderAny = XmppProvider as unknown as React.ComponentType<React.PropsWithChildren<{}>>;
 
   return (
-    <div className="h-full bg-white dark:bg-gray-900 relative">
+    <div className="h-full bg-white relative">
       {/* Reload indicator */}
       {isReloading && (
         <div className="absolute top-4 right-4 z-50 bg-blue-600 dark:bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 animate-pulse">

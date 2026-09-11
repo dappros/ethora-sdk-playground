@@ -172,6 +172,95 @@ function ToggleField({
   );
 }
 
+function SliderField({
+  id,
+  label,
+  value,
+  min,
+  max,
+  step = 1,
+  unit = 'px',
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step?: number;
+  unit?: string;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <Label htmlFor={id}>{label}</Label>
+        <span className="text-xs text-gray-500 dark:text-gray-400 font-mono tabular-nums">
+          {value}
+          {unit}
+        </span>
+      </div>
+      <input
+        id={id}
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-full h-2 accent-blue-600 cursor-pointer"
+      />
+    </div>
+  );
+}
+
+const SIZE_PRESETS: { label: string; width: string; height: string }[] = [
+  { label: 'Widget default', width: '', height: '' },
+  { label: 'Compact', width: '320px', height: '440px' },
+  { label: 'Standard', width: '380px', height: '520px' },
+  { label: 'Large', width: '420px', height: '620px' },
+  { label: 'Tall', width: '380px', height: '80vh' },
+];
+
+function SizePresetField({
+  width,
+  height,
+  onPreset,
+}: {
+  width: string;
+  height: string;
+  onPreset: (width: string, height: string) => void;
+}) {
+  const activeLabel = SIZE_PRESETS.find((p) => p.width === width && p.height === height)?.label;
+  return (
+    <div>
+      <Label htmlFor="sizePresets">Quick sizes</Label>
+      <div id="sizePresets" className="flex flex-wrap gap-2">
+        {SIZE_PRESETS.map((preset) => {
+          const isActive = preset.label === activeLabel;
+          return (
+            <button
+              key={preset.label}
+              type="button"
+              onClick={() => onPreset(preset.width, preset.height)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${
+                isActive
+                  ? 'border-blue-600 bg-blue-600 text-white'
+                  : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+              }`}
+            >
+              {preset.label}
+            </button>
+          );
+        })}
+      </div>
+      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+        Or type an exact CSS value (px, vh/vw, calc(...)) in the fields below.
+      </p>
+    </div>
+  );
+}
+
 function buildPreviewHtml(settings: AssistantSettings): string {
   const attrs = getAssistantAttributes(settings)
     .map(([attr, value]) => `${attr}="${value.replace(/"/g, '&quot;')}"`)
@@ -215,7 +304,7 @@ export default function AssistantPanel({ settings, onSettingsChange }: Assistant
   return (
     <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
       {/* Configurator */}
-      <aside className="w-full lg:w-96 border-r border-gray-200 dark:border-gray-800 overflow-y-auto flex-shrink-0 p-4">
+      <aside className="w-full lg:w-96 border-r border-gray-200 dark:border-gray-800 overflow-y-auto flex-shrink lg:flex-shrink-0 max-h-[45vh] lg:max-h-none p-4">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
             Assistant configurator
@@ -364,6 +453,14 @@ export default function AssistantPanel({ settings, onSettingsChange }: Assistant
               <option value="left">Left</option>
             </select>
           </div>
+          <SizePresetField
+            width={settings.width}
+            height={settings.height}
+            onPreset={(w, h) => {
+              handleChange('width', w);
+              handleChange('height', h);
+            }}
+          />
           <TextField
             id="width"
             label="Width"
@@ -440,10 +537,13 @@ export default function AssistantPanel({ settings, onSettingsChange }: Assistant
             checked={settings.flatLauncher}
             onChange={(v) => handleChange('flatLauncher', v)}
           />
-          <NumberField
+          <SliderField
             id="launcherSize"
-            label="Launcher size (px)"
+            label="Launcher size"
             value={settings.launcherSize}
+            min={40}
+            max={88}
+            step={4}
             onChange={(v) => handleChange('launcherSize', v)}
           />
           <ToggleField
@@ -478,7 +578,7 @@ export default function AssistantPanel({ settings, onSettingsChange }: Assistant
       </aside>
 
       {/* Preview + embed code */}
-      <main className="flex-1 overflow-hidden flex flex-col min-w-0">
+      <main className="flex-1 overflow-y-auto lg:overflow-hidden flex flex-col min-w-0 min-h-[300px] lg:min-h-0">
         <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
           <span className="text-xs text-gray-500 dark:text-gray-400">
             Live preview &mdash; loads the built <code>ethora_assistant.js</code>

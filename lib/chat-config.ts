@@ -403,7 +403,12 @@ export function settingsToChatConfig(
     colors: {
       primary: settings.primaryColor,
       secondary: settings.secondaryColor,
-    },
+      // Avatar initials sit on light, per-user pastel backgrounds regardless of
+      // the host page's own theme; without a fixed dark text color they inherit
+      // whatever text color the surrounding page uses (e.g. white in dark mode)
+      // and become unreadable. Keep them dark unless the host overrides it.
+      icons: '#141414',
+    } as ChatConfig['colors'] & { icons?: string },
     baseUrl: settings.baseUrl,
     customAppToken: settings.customAppToken,
     newArch: settings.newArch,
